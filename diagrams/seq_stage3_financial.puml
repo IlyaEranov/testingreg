@@ -1,0 +1,33 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceLifeLineBorderColor #999999
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+
+title Рисунок 2.4 — Диаграмма последовательности:\nфинансовое завершение и закрытие заявки
+
+actor "Покупатель" as customer
+actor "Бухгалтер" as accountant
+participant "АИС" as ais
+participant "1С:Предприятие" as onec
+
+== 5. Финансовое завершение ==
+
+accountant -> ais : Подтверждение возврата\nденежных средств
+activate ais
+ais -> onec : Создание документа возврата\nи обновление остатков
+activate onec
+onec --> ais : Документы проведены
+deactivate onec
+deactivate ais
+
+== 6. Закрытие заявки ==
+
+ais -> ais : Статус: «завершена»
+ais --> customer : Уведомление:\n«Заявка закрыта,\nсредства возвращены»
+ais --> accountant : Заявка закрыта
+
+@enduml

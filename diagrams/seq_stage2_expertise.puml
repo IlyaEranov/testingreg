@@ -1,0 +1,54 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceLifeLineBorderColor #999999
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+
+title Рисунок 2.3 — Диаграмма последовательности:\nэкспертиза поставщика и принятие решения
+
+actor "Покупатель" as customer
+actor "Менеджер" as manager
+participant "АИС" as ais
+participant "Модуль\nдокументов" as docs
+actor "Поставщик" as supplier
+
+== 3. Экспертиза поставщика (при необходимости) ==
+
+manager -> ais : Передача товара\nна экспертизу
+activate ais
+ais -> ais : Статус: «передана\nна экспертизу»
+ais -> docs : Генерация акта передачи
+activate docs
+docs --> ais : Акт сформирован
+deactivate docs
+ais --> customer : Уведомление:\n«Товар передан на экспертизу»
+deactivate ais
+
+manager -> supplier : Передача товара
+
+...Ожидание заключения поставщика...
+
+supplier -> manager : Заключение экспертизы
+
+manager -> ais : Внесение результата\nэкспертизы
+activate ais
+ais -> ais : Статус: «экспертиза завершена»
+deactivate ais
+
+== 4. Принятие решения ==
+
+manager -> ais : Решение: возврат одобрен
+activate ais
+ais -> ais : Статус: «одобрена»
+ais -> docs : Генерация документов возврата
+activate docs
+docs --> ais : Документы сформированы
+deactivate docs
+ais --> customer : Уведомление:\n«Возврат одобрен»
+ais -> ais : Статус: «ожидает\nфинансового завершения»
+deactivate ais
+
+@enduml

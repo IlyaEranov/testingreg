@@ -1,0 +1,45 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceLifeLineBorderColor #999999
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+
+title Рисунок 2.2 — Диаграмма последовательности:\nрегистрация заявки и складская проверка
+
+actor "Покупатель" as customer
+actor "Менеджер" as manager
+actor "Складской\nсотрудник" as warehouse
+participant "АИС" as ais
+participant "Модуль\nдокументов" as docs
+
+== 1. Регистрация заявки ==
+
+customer -> manager : Обращение на возврат
+manager -> ais : Создание заявки\n(клиент, товар, причина)
+activate ais
+ais -> ais : Валидация и сохранение\nСтатус: «создана»
+ais -> docs : Генерация заявления\nи маршрутного листа
+activate docs
+docs --> ais : Документы сформированы
+deactivate docs
+ais --> manager : Заявка №N создана
+ais --> warehouse : Уведомление:\n«Новая заявка №N»
+deactivate ais
+
+== 2. Складская проверка ==
+
+manager -> ais : Перевод на проверку склада
+activate ais
+ais -> ais : Статус: «на проверке склада»
+deactivate ais
+
+warehouse -> ais : Результат проверки\n(количество, состояние, фото)
+activate ais
+ais -> ais : Сохранение результата
+ais --> manager : Уведомление:\n«Требуется решение по заявке №N»
+deactivate ais
+
+@enduml
