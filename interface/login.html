@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — АИС Сопровождение возвратов</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #2c5a4f 0%, #3f6e5e 45%, #407368 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        body::before {
+            content: "";
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+        }
+
+        .login-container {
+            width: 100%; max-width: 460px;
+            background: #fff;
+            border-radius: 32px;
+            box-shadow: 0 25px 45px -12px rgba(0,0,0,0.35);
+            overflow: hidden;
+            position: relative; z-index: 2;
+            transition: transform .2s;
+        }
+        .login-container:hover { transform: translateY(-3px); }
+
+        .hero-accent {
+            height: 8px;
+            background: linear-gradient(90deg, #407368, #5f9b8c, #c7bc9a, #e6d5b8);
+        }
+
+        .form-panel { padding: 2rem 2rem 2.2rem; }
+
+        .brand { text-align: center; margin-bottom: 1.8rem; }
+        .brand-icon {
+            width: 56px; height: 56px;
+            background: #eef3f1; border-radius: 30px;
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem;
+            box-shadow: 0 6px 12px -8px rgba(64,115,104,0.3);
+        }
+        .brand-icon svg { width: 32px; height: 32px; stroke: #407368; stroke-width: 1.7; fill: none; }
+        .brand h1 { font-size: 1.7rem; font-weight: 600; color: #2c4e45; margin-bottom: .25rem; letter-spacing: -.3px; }
+        .brand p { color: #6b7c77; font-size: .88rem; font-weight: 450; }
+
+        .input-group { margin-bottom: 1.4rem; display: flex; flex-direction: column; }
+        .input-group label { font-size: .85rem; font-weight: 600; margin-bottom: .4rem; color: #2a554a; letter-spacing: .3px; }
+
+        .input-field {
+            display: flex; align-items: center;
+            background: #f9fcfb; border: 1px solid #dde7e3;
+            border-radius: 20px; padding: 0 1rem; transition: all .2s;
+        }
+        .input-field:focus-within { border-color: #407368; box-shadow: 0 0 0 3px rgba(64,115,104,0.2); background: #fff; }
+        .input-field input {
+            width: 100%; padding: .9rem 0; border: none; background: transparent;
+            font-size: 1rem; outline: none; font-weight: 450; color: #1f3e36;
+        }
+        .input-field input::placeholder { color: #b3c7c0; font-weight: 400; font-size: .9rem; }
+
+        .field-icon { display: inline-flex; align-items: center; margin-right: 10px; color: #8aa79f; }
+        .field-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+        .form-options { display: flex; justify-content: space-between; align-items: center; margin: 1rem 0 1.8rem; font-size: .85rem; }
+        .checkbox { display: flex; align-items: center; gap: .5rem; color: #3e6b60; cursor: pointer; }
+        .checkbox input { width: 17px; height: 17px; accent-color: #407368; cursor: pointer; }
+        .forgot-link { color: #407368; text-decoration: none; font-weight: 600; border-bottom: 1px dashed #bcd9d0; transition: .2s; }
+        .forgot-link:hover { color: #255a4e; border-bottom-color: #407368; }
+
+        .btn-login {
+            width: 100%; background: #407368; border: none; padding: .9rem 0;
+            border-radius: 40px; font-size: 1rem; font-weight: 700; color: #fff;
+            cursor: pointer; transition: all .25s; margin-bottom: 1.6rem;
+            box-shadow: 0 6px 14px -8px rgba(0,0,0,0.2); letter-spacing: .4px;
+        }
+        .btn-login:hover { background: #2f5a4f; transform: scale(.98); }
+        .btn-login:active { transform: scale(.97); }
+
+        .info-note {
+            text-align: center; font-size: .8rem; color: #8aa59c;
+            border-top: 1px solid #e3efea; padding-top: 1.5rem; margin-top: .5rem;
+        }
+        .info-note span { font-weight: 500; color: #5e8b7e; }
+
+        /* Toast */
+        .toast {
+            visibility: hidden; min-width: 220px; background: #23463d; color: #fff;
+            text-align: center; border-radius: 50px; padding: .7rem 1rem;
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            font-size: .85rem; font-weight: 500; opacity: 0; transition: .3s; z-index: 1100;
+            box-shadow: 0 5px 12px rgba(0,0,0,0.2);
+        }
+        .toast.show { visibility: visible; opacity: 1; }
+
+        .error-shake { animation: shake .3s ease-in-out; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+        @media(max-width:480px) {
+            .form-panel { padding: 1.5rem; }
+            .brand h1 { font-size: 1.4rem; }
+            .form-options { flex-wrap: wrap; gap: .6rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <div class="hero-accent"></div>
+    <div class="form-panel">
+        <div class="brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <h1>Регион Сервис</h1>
+            <p>Система сопровождения возвратов товаров</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="email">Электронная почта</label>
+                <div class="input-field">
+                    <span class="field-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+                    <input type="email" id="email" placeholder="ivanov@region-service.ru" autocomplete="email" required>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="password">Пароль</label>
+                <div class="input-field">
+                    <span class="field-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+                </div>
+            </div>
+            <div class="form-options">
+                <label class="checkbox"><input type="checkbox" id="rememberMe"> <span>Запомнить меня</span></label>
+                <a href="#" class="forgot-link" id="forgotBtn">Забыли пароль?</a>
+            </div>
+            <button type="submit" class="btn-login">Войти</button>
+        </form>
+
+        <div class="info-note">
+            <span>Только авторизованный доступ</span><br>
+            Для получения учётных данных обратитесь к администратору
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+    const form = document.getElementById('loginForm');
+    const toast = document.getElementById('toast');
+    const container = document.querySelector('.login-container');
+
+    function showToast(msg, isError){
+        toast.textContent = msg;
+        toast.style.background = isError ? '#b1624b' : '#23463d';
+        toast.classList.add('show');
+        setTimeout(()=> toast.classList.remove('show'), 3200);
+    }
+
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const pwd = document.getElementById('password').value;
+
+        container.classList.remove('error-shake');
+        void container.offsetWidth;
+
+        if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || pwd.length < 4){
+            container.classList.add('error-shake');
+            showToast('Проверьте формат почты и пароль (мин. 4 символа)', true);
+            return;
+        }
+
+        showToast('Вход выполнен. Перенаправление...', false);
+        setTimeout(()=> window.location.href = 'index.html', 1000);
+    });
+
+    document.getElementById('forgotBtn').addEventListener('click', function(e){
+        e.preventDefault();
+        showToast('Обратитесь к администратору для сброса пароля', false);
+    });
+
+    // restore remembered email
+    if(localStorage.getItem('rememberFlag')==='true'){
+        document.getElementById('email').value = localStorage.getItem('rememberedEmail')||'';
+        document.getElementById('rememberMe').checked = true;
+    }
+
+    form.addEventListener('submit', function(){
+        if(document.getElementById('rememberMe').checked){
+            localStorage.setItem('rememberedEmail', document.getElementById('email').value);
+            localStorage.setItem('rememberFlag','true');
+        } else {
+            localStorage.removeItem('rememberedEmail');
+            localStorage.setItem('rememberFlag','false');
+        }
+    });
+})();
+</script>
+</body>
+</html>

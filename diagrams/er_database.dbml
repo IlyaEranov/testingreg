@@ -1,0 +1,144 @@
+// Схема базы данных АИС сопровождения возврата товаров
+// Для dbdiagram.io — вставьте этот код на https://dbdiagram.io
+
+Table roles {
+  id integer [pk, increment]
+  name varchar(50) [not null, unique]
+  description varchar(255)
+}
+
+Table users {
+  id integer [pk, increment]
+  email varchar(255) [not null, unique]
+  hashed_password varchar(255) [not null]
+  last_name varchar(100) [not null]
+  first_name varchar(100) [not null]
+  patronymic varchar(100)
+  phone varchar(20)
+  role_id integer [not null, ref: > roles.id]
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+}
+
+Table clients {
+  id integer [pk, increment]
+  name varchar(255) [not null]
+  phone varchar(20)
+  email varchar(255)
+  address varchar(500)
+  comment varchar(1000)
+  created_at timestamp [not null]
+}
+
+Table return_reasons {
+  id integer [pk, increment]
+  name varchar(255) [not null]
+  description varchar(500)
+  is_active boolean [not null, default: true]
+}
+
+Table return_statuses {
+  id integer [pk, increment]
+  name varchar(100) [not null, unique]
+  code varchar(50) [not null, unique]
+  description varchar(500)
+  sort_order integer [not null, default: 0]
+}
+
+Table suppliers {
+  id integer [pk, increment]
+  name varchar(255) [not null]
+  contact_person varchar(255)
+  phone varchar(20)
+  email varchar(255)
+  address varchar(500)
+  comment varchar(1000)
+  is_active boolean [not null, default: true]
+}
+
+Table warehouses {
+  id integer [pk, increment]
+  name varchar(255) [not null]
+  address varchar(500)
+  is_active boolean [not null, default: true]
+}
+
+Table return_requests {
+  id integer [pk, increment]
+  number varchar(20) [not null, unique]
+  client_id integer [not null, ref: > clients.id]
+  return_type varchar(100) [not null]
+  reason_id integer [not null, ref: > return_reasons.id]
+  status varchar(50) [not null, default: 'created']
+  manager_id integer [not null, ref: > users.id]
+  warehouse_id integer [not null, ref: > warehouses.id]
+  comment text
+  total_amount "numeric(12,2)" [not null, default: 0]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table return_items {
+  id integer [pk, increment]
+  return_request_id integer [not null, ref: > return_requests.id]
+  product_name varchar(500) [not null]
+  article varchar(100)
+  quantity integer [not null]
+  unit varchar(20) [not null, default: 'шт.']
+  price "numeric(12,2)" [not null]
+}
+
+Table warehouse_checks {
+  id integer [pk, increment]
+  return_item_id integer [not null, ref: > return_items.id]
+  quantity_fact integer [not null]
+  packaging_condition varchar(255) [not null]
+  defect_description text
+  photos text
+  inspector_id integer [not null, ref: > users.id]
+  checked_at timestamp [not null]
+}
+
+Table supplier_examinations {
+  id integer [pk, increment]
+  return_request_id integer [not null, ref: > return_requests.id]
+  supplier_id integer [not null, ref: > suppliers.id]
+  transfer_date timestamp
+  result_date timestamp
+  conclusion varchar(100)
+  details text
+  created_at timestamp [not null]
+}
+
+Table documents {
+  id integer [pk, increment]
+  return_request_id integer [not null, ref: > return_requests.id]
+  document_type varchar(100) [not null]
+  file_name varchar(500) [not null]
+  file_path varchar(1000) [not null]
+  generated_by varchar(50) [not null, default: 'system']
+  created_at timestamp [not null]
+}
+
+Table action_history {
+  id integer [pk, increment]
+  return_request_id integer [not null, ref: > return_requests.id]
+  user_id integer [ref: > users.id]
+  action varchar(255) [not null]
+  old_status varchar(50)
+  new_status varchar(50)
+  details text
+  created_at timestamp [not null]
+}
+
+Table notifications {
+  id integer [pk, increment]
+  return_request_id integer [not null, ref: > return_requests.id]
+  recipient_type varchar(20) [not null]
+  recipient_contact varchar(255) [not null]
+  channel varchar(20) [not null]
+  message text [not null]
+  is_sent boolean [not null, default: false]
+  sent_at timestamp
+  created_at timestamp [not null]
+}

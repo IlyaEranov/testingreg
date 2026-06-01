@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АИС Сопровождение возвратов | Регион Сервис</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* ============ RESET & BASE ============ */
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',Roboto,'Helvetica Neue',sans-serif;background:#f4faf7;color:#1e3a31;display:flex;height:100vh;overflow:hidden}
+        a{color:#407368;text-decoration:none}
+        button{font-family:inherit;cursor:pointer}
+        input,select,textarea{font-family:inherit}
+
+        /* ============ SIDEBAR ============ */
+        .sidebar{width:270px;background:linear-gradient(180deg,#2c5a4f,#1f453c);color:#e2f0eb;display:flex;flex-direction:column;box-shadow:4px 0 20px rgba(0,0,0,.08);z-index:10;flex-shrink:0}
+        .sidebar-header{padding:24px 22px;border-bottom:1px solid #4c7b6e}
+        .sidebar-header h2{font-weight:600;font-size:1.35rem;color:#fff;letter-spacing:-.3px}
+        .sidebar-header p{font-size:.72rem;opacity:.8;margin-top:5px}
+        .nav-menu{flex:1;padding:20px 14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+        .nav-section{font-size:.65rem;text-transform:uppercase;letter-spacing:1.2px;color:#7faa9e;padding:14px 18px 6px;font-weight:700}
+        .nav-item{display:flex;align-items:center;gap:12px;padding:11px 18px;border-radius:24px;font-weight:500;cursor:pointer;transition:.15s;color:#d9efe8;font-size:.88rem}
+        .nav-item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;flex-shrink:0}
+        .nav-item.active{background:#407368;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+        .nav-item:hover:not(.active){background:#35685c;color:#fff}
+        .nav-item .badge{margin-left:auto;background:#c7bc9a;color:#2c5a4f;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:20px}
+        .user-section{padding:18px 18px 22px;border-top:1px solid #487b6d;display:flex;align-items:center;gap:12px}
+        .user-avatar{width:42px;height:42px;background:#c7bc9a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#2c5a4f;font-weight:bold;font-size:1.1rem;flex-shrink:0}
+        .user-info h4{font-size:.85rem;font-weight:600}
+        .user-info span{font-size:.68rem;opacity:.8}
+
+        /* ============ MAIN ============ */
+        .main{flex:1;overflow-y:auto;padding:24px 30px}
+
+        /* Pages */
+        .page{display:none;animation:fadeIn .25s ease}
+        .page.active{display:block}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+        /* Page header */
+        .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+        .page-header h1{font-size:1.5rem;font-weight:700;color:#1e3a31}
+
+        /* ============ CARDS ============ */
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-bottom:28px}
+        .stat-card{background:#fff;border-radius:24px;padding:22px 24px;border:1px solid #e3efea;box-shadow:0 2px 8px rgba(0,0,0,.03);transition:.15s}
+        .stat-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.06)}
+        .stat-card .label{font-size:.78rem;color:#6b8a80;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .stat-card .value{font-size:1.9rem;font-weight:700;color:#2c5a4f;margin-top:6px}
+        .stat-card .sub{font-size:.75rem;color:#8aaa9f;margin-top:4px}
+        .stat-card.accent{border-left:4px solid #407368}
+        .stat-card.warn{border-left:4px solid #c7bc9a}
+        .stat-card.success{border-left:4px solid #5f9b8c}
+        .stat-card.info{border-left:4px solid #7ab8a8}
+
+        /* ============ TABLE ============ */
+        .card{background:#fff;border-radius:24px;border:1px solid #e3efea;box-shadow:0 2px 8px rgba(0,0,0,.03);overflow:hidden;margin-bottom:24px}
+        .card-header{padding:18px 24px;border-bottom:1px solid #ecf3ef;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+        .card-header h3{font-size:1.05rem;font-weight:700;color:#2c5a4f}
+        .card-body{padding:20px 24px}
+        .card-body.no-pad{padding:0}
+
+        table{width:100%;border-collapse:collapse;font-size:.84rem}
+        th{text-align:left;padding:14px 20px;background:#f9fefb;color:#2a5a4e;font-weight:700;border-bottom:1px solid #e0ede7;white-space:nowrap}
+        td{padding:13px 20px;border-bottom:1px solid #ecf3ef;color:#254e43}
+        tr:hover td{background:#f6fdf9}
+        tr{cursor:pointer;transition:.1s}
+
+        /* Status */
+        .badge{display:inline-block;padding:4px 14px;border-radius:40px;font-size:.73rem;font-weight:600;white-space:nowrap}
+        .badge-created{background:#e8f0fe;color:#3b6cb5}
+        .badge-warehouse{background:#fff3cd;color:#856404}
+        .badge-waiting{background:#f3e8ff;color:#7c3aed}
+        .badge-expertise{background:#ffe8d6;color:#c2590a}
+        .badge-expertise-done{background:#fde8ee;color:#b33a5e}
+        .badge-approved{background:#d4edda;color:#155724}
+        .badge-rejected{background:#f8d7da;color:#721c24}
+        .badge-docs{background:#e0f0ea;color:#2f5e51}
+        .badge-finance{background:#fff3cd;color:#7a6b15}
+        .badge-done{background:#c8e6c9;color:#1b5e20}
+
+        /* ============ BUTTONS ============ */
+        .btn{display:inline-flex;align-items:center;gap:8px;border:none;padding:10px 22px;border-radius:36px;font-size:.85rem;font-weight:600;transition:.15s}
+        .btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
+        .btn-primary{background:#407368;color:#fff;box-shadow:0 4px 10px rgba(64,115,104,.2)}
+        .btn-primary:hover{background:#2f5a4f}
+        .btn-secondary{background:#e6edea;color:#2f5e51}
+        .btn-secondary:hover{background:#d4e2db}
+        .btn-accent{background:#c7bc9a;color:#2c5a4f}
+        .btn-accent:hover{background:#b5a988}
+        .btn-danger{background:#f8d7da;color:#721c24}
+        .btn-danger:hover{background:#f1bfc4}
+        .btn-sm{padding:7px 16px;font-size:.78rem}
+        .btn-icon{background:none;border:none;padding:6px;border-radius:50%;transition:.1s;display:inline-flex}
+        .btn-icon:hover{background:#e0f0ea}
+        .btn-icon svg{width:18px;height:18px;stroke:#407368;fill:none;stroke-width:1.8}
+
+        /* ============ FILTERS ============ */
+        .filters{display:flex;flex-wrap:wrap;gap:12px;background:#fff;padding:16px 22px;border-radius:24px;margin-bottom:20px;border:1px solid #e3efea;align-items:center}
+        .filter-group{display:flex;align-items:center;gap:8px;background:#f9fdfb;padding:0 14px;border-radius:40px;border:1px solid #d4e2db}
+        .filter-group label{font-weight:600;font-size:.78rem;color:#3d6a5e;white-space:nowrap}
+        .filter-group select,.filter-group input{background:transparent;border:none;padding:9px 0;font-size:.84rem;outline:none;font-weight:500;min-width:100px}
+
+        /* ============ FORM ============ */
+        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+        .form-grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+        .form-grid.cols-1{grid-template-columns:1fr}
+        .form-group{display:flex;flex-direction:column;gap:6px}
+        .form-group.full{grid-column:1/-1}
+        .form-group label{font-size:.82rem;font-weight:600;color:#2a554a}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 16px;border-radius:20px;border:1px solid #cbdcd5;background:#f9fcfb;font-size:.9rem;outline:none;transition:.2s;color:#1f3e36}
+        .form-group textarea{border-radius:16px;resize:vertical;min-height:80px}
+        .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#407368;box-shadow:0 0 0 3px rgba(64,115,104,.15);background:#fff}
+
+        /* ============ MODAL ============ */
+        .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(30,58,49,.6);backdrop-filter:blur(4px);z-index:100;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+        .modal-overlay.show{display:flex}
+        .modal{background:#fff;border-radius:28px;width:100%;max-width:800px;box-shadow:0 30px 60px rgba(0,0,0,.25);overflow:hidden;animation:modalIn .2s ease}
+        @keyframes modalIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .modal-header{padding:20px 28px;border-bottom:1px solid #e3efea;display:flex;justify-content:space-between;align-items:center;background:#f9fefb}
+        .modal-header h2{font-size:1.2rem;font-weight:700;color:#2c5a4f}
+        .modal-close{background:none;border:none;font-size:1.6rem;color:#8aaa9f;cursor:pointer;transition:.15s;line-height:1}
+        .modal-close:hover{color:#407368}
+        .modal-body{padding:24px 28px}
+
+        /* Tabs */
+        .tabs{display:flex;gap:4px;border-bottom:2px solid #e3efea;margin-bottom:20px;padding:0 4px}
+        .tab{padding:10px 20px;font-size:.84rem;font-weight:600;color:#6b8a80;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;border-radius:12px 12px 0 0}
+        .tab.active{color:#407368;border-bottom-color:#407368;background:#f0f9f5}
+        .tab:hover:not(.active){color:#2c5a4f;background:#f6fdf9}
+
+        /* Timeline */
+        .timeline{position:relative;padding-left:28px}
+        .timeline::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:#e3efea}
+        .timeline-item{position:relative;padding-bottom:18px}
+        .timeline-item::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;background:#407368;border:2px solid #fff;box-shadow:0 0 0 2px #e3efea}
+        .timeline-item .time{font-size:.72rem;color:#8aaa9f;font-weight:600}
+        .timeline-item .event{font-size:.84rem;color:#254e43;margin-top:2px}
+        .timeline-item .actor{font-size:.75rem;color:#6b8a80}
+
+        /* Items table in modal */
+        .items-list{display:flex;flex-direction:column;gap:12px}
+        .item-row{background:#f9fdfb;border-radius:16px;padding:14px 18px;border:1px solid #e3efea}
+        .item-row .item-name{font-weight:600;color:#2c5a4f;font-size:.9rem}
+        .item-row .item-details{display:flex;gap:20px;margin-top:6px;font-size:.8rem;color:#6b8a80;flex-wrap:wrap}
+        .item-row .item-details span{display:flex;align-items:center;gap:4px}
+
+        /* Documents list */
+        .doc-item{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#f9fdfb;border-radius:16px;border:1px solid #e3efea;margin-bottom:8px;transition:.1s}
+        .doc-item:hover{background:#f0f9f5}
+        .doc-icon{width:40px;height:40px;background:#e0f0ea;border-radius:12px;display:flex;align-items:center;justify-content:center}
+        .doc-icon svg{width:20px;height:20px;stroke:#407368;fill:none;stroke-width:1.8}
+        .doc-info{flex:1}
+        .doc-info .doc-name{font-weight:600;font-size:.85rem;color:#2c5a4f}
+        .doc-info .doc-meta{font-size:.73rem;color:#8aaa9f;margin-top:2px}
+
+        /* Chart */
+        .chart-wrap{max-width:100%;height:280px;position:relative}
+        .chart-wrap canvas{width:100%!important;height:100%!important}
+
+        /* ============ RESPONSIVE ============ */
+        @media(max-width:900px){
+            .sidebar{width:220px}
+            .main{padding:16px}
+            .form-grid{grid-template-columns:1fr}
+            .stats-grid{grid-template-columns:repeat(2,1fr)}
+        }
+        @media(max-width:640px){
+            body{flex-direction:column}
+            .sidebar{width:100%;height:auto;flex-direction:row;overflow-x:auto}
+            .sidebar-header{display:none}
+            .nav-menu{flex-direction:row;padding:8px;gap:4px;overflow-x:auto}
+            .nav-section{display:none}
+            .user-section{display:none}
+            .nav-item span{display:none}
+            .nav-item{padding:10px}
+            .main{height:calc(100vh - 60px)}
+            .stats-grid{grid-template-columns:1fr 1fr}
+        }
+
+        /* Empty state */
+        .empty-state{text-align:center;padding:48px 20px;color:#8aaa9f}
+        .empty-state svg{width:64px;height:64px;stroke:#c7d9d1;fill:none;stroke-width:1.2;margin-bottom:16px}
+        .empty-state p{font-size:.95rem;font-weight:500}
+
+        /* Toast */
+        .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#23463d;color:#fff;padding:10px 24px;border-radius:50px;font-size:.85rem;font-weight:500;box-shadow:0 5px 16px rgba(0,0,0,.2);z-index:200;opacity:0;visibility:hidden;transition:.3s}
+        .toast.show{opacity:1;visibility:visible}
+        .toast.error{background:#b1624b}
+
+        /* Photo grid */
+        .photo-grid{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+        .photo-thumb{width:80px;height:80px;background:#e3efea;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#8aaa9f;font-size:.7rem;border:1px solid #d4e2db}
+    </style>
+</head>
+<body>
+
+<!-- ===================== SIDEBAR ===================== -->
+<nav class="sidebar">
+    <div class="sidebar-header">
+        <h2>Регион Сервис</h2>
+        <p>АИС сопровождения возвратов</p>
+    </div>
+    <div class="nav-menu">
+        <div class="nav-section">Основное</div>
+        <div class="nav-item active" data-page="dashboard">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            <span>Главная</span>
+        </div>
+        <div class="nav-item" data-page="returns">
+            <svg viewBox="0 0 24 24"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/></svg>
+            <span>Заявки на возврат</span>
+            <span class="badge" id="returnsBadge">12</span>
+        </div>
+        <div class="nav-item" data-page="warehouse">
+            <svg viewBox="0 0 24 24"><path d="M21 10H3M21 6H3M21 14H3M21 18H3"/><rect x="1" y="3" width="22" height="18" rx="2"/></svg>
+            <span>Складская проверка</span>
+            <span class="badge" id="warehouseBadge">3</span>
+        </div>
+        <div class="nav-section">Аналитика</div>
+        <div class="nav-item" data-page="reports">
+            <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            <span>Отчёты</span>
+        </div>
+        <div class="nav-section">Настройки</div>
+        <div class="nav-item" data-page="directories">
+            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>Справочники</span>
+        </div>
+        <div class="nav-item" data-page="users">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Пользователи</span>
+        </div>
+    </div>
+    <div class="user-section">
+        <div class="user-avatar">ИМ</div>
+        <div class="user-info">
+            <h4>Иванов М.А.</h4>
+            <span>Менеджер</span>
+        </div>
+    </div>
+</nav>
+
+<!-- ===================== MAIN ===================== -->
+<div class="main">
+
+<!-- ===== DASHBOARD ===== -->
+<div id="page-dashboard" class="page active">
+    <div class="page-header">
+        <h1>Главная</h1>
+        <div style="display:flex;gap:10px;align-items:center">
+            <span style="font-size:.84rem;color:#6b8a80">Сегодня: <strong id="todayDate"></strong></span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card accent">
+            <div class="label">Всего заявок</div>
+            <div class="value" id="statTotal">0</div>
+            <div class="sub">за всё время</div>
+        </div>
+        <div class="stat-card warn">
+            <div class="label">В работе</div>
+            <div class="value" id="statActive">0</div>
+            <div class="sub">требуют внимания</div>
+        </div>
+        <div class="stat-card success">
+            <div class="label">Завершено</div>
+            <div class="value" id="statDone">0</div>
+            <div class="sub">успешно обработано</div>
+        </div>
+        <div class="stat-card info">
+            <div class="label">Сумма возвратов</div>
+            <div class="value" id="statAmount">0</div>
+            <div class="sub">руб.</div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+            <div class="card-header"><h3>Последние заявки</h3></div>
+            <div class="card-body no-pad">
+                <table><thead><tr><th>№</th><th>Клиент</th><th>Дата</th><th>Статус</th></tr></thead>
+                <tbody id="dashRecentTable"></tbody></table>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>Распределение по статусам</h3></div>
+            <div class="card-body"><div class="chart-wrap"><canvas id="dashChart"></canvas></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== RETURNS LIST ===== -->
+<div id="page-returns" class="page">
+    <div class="page-header">
+        <h1>Заявки на возврат</h1>
+        <button class="btn btn-primary" onclick="openCreateModal()">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Новая заявка
+        </button>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group"><label>Статус</label><select id="fStatus"><option value="">Все</option></select></div>
+        <div class="filter-group"><label>Дата от</label><input type="date" id="fDateFrom"></div>
+        <div class="filter-group"><label>до</label><input type="date" id="fDateTo"></div>
+        <div class="filter-group"><label>Клиент</label><input type="text" id="fClient" placeholder="Поиск..." style="min-width:140px"></div>
+        <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Сбросить</button>
+    </div>
+
+    <div class="card">
+        <div class="card-body no-pad">
+            <table>
+                <thead><tr><th>№</th><th>Клиент</th><th>Дата</th><th>Тип</th><th>Сумма</th><th>Статус</th><th>Менеджер</th></tr></thead>
+                <tbody id="returnsTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== WAREHOUSE ===== -->
+<div id="page-warehouse" class="page">
+    <div class="page-header"><h1>Складская проверка</h1></div>
+    <p style="margin-bottom:20px;color:#6b8a80;font-size:.9rem">Заявки, ожидающие проверки на складе</p>
+    <div class="card">
+        <div class="card-body no-pad">
+            <table>
+                <thead><tr><th>№ заявки</th><th>Клиент</th><th>Дата</th><th>Товары</th><th>Действия</th></tr></thead>
+                <tbody id="warehouseTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== REPORTS ===== -->
+<div id="page-reports" class="page">
+    <div class="page-header"><h1>Отчёты</h1>
+        <button class="btn btn-accent btn-sm" onclick="exportCSV()">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Экспорт CSV
+        </button>
+    </div>
+    <div class="filters">
+        <div class="filter-group"><label>Период от</label><input type="date" id="rDateFrom"></div>
+        <div class="filter-group"><label>до</label><input type="date" id="rDateTo"></div>
+        <button class="btn btn-primary btn-sm" onclick="updateReports()">Обновить</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+            <div class="card-header"><h3>Динамика возвратов по месяцам</h3></div>
+            <div class="card-body"><div class="chart-wrap"><canvas id="reportChart1"></canvas></div></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>По причинам возврата</h3></div>
+            <div class="card-body"><div class="chart-wrap"><canvas id="reportChart2"></canvas></div></div>
+        </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+        <div class="card-header"><h3>Сводная таблица по поставщикам</h3></div>
+        <div class="card-body no-pad">
+            <table><thead><tr><th>Поставщик</th><th>Кол-во возвратов</th><th>Подтв. брак</th><th>Сумма, руб.</th></tr></thead>
+            <tbody id="supplierSummary"></tbody></table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== DIRECTORIES ===== -->
+<div id="page-directories" class="page">
+    <div class="page-header"><h1>Справочники</h1></div>
+    <div class="tabs" id="dirTabs">
+        <div class="tab active" data-dir="reasons">Причины возврата</div>
+        <div class="tab" data-dir="suppliers">Поставщики</div>
+        <div class="tab" data-dir="warehouses">Склады</div>
+    </div>
+    <div id="dir-reasons" class="dir-content">
+        <div class="card"><div class="card-body no-pad">
+            <table><thead><tr><th>ID</th><th>Наименование</th><th>Описание</th><th>Активна</th></tr></thead>
+            <tbody id="reasonsTable"></tbody></table>
+        </div></div>
+    </div>
+    <div id="dir-suppliers" class="dir-content" style="display:none">
+        <div class="card"><div class="card-body no-pad">
+            <table><thead><tr><th>ID</th><th>Наименование</th><th>Контактное лицо</th><th>Телефон</th><th>Email</th></tr></thead>
+            <tbody id="suppliersTable"></tbody></table>
+        </div></div>
+    </div>
+    <div id="dir-warehouses" class="dir-content" style="display:none">
+        <div class="card"><div class="card-body no-pad">
+            <table><thead><tr><th>ID</th><th>Наименование</th><th>Адрес</th><th>Активен</th></tr></thead>
+            <tbody id="warehousesTable"></tbody></table>
+        </div></div>
+    </div>
+</div>
+
+<!-- ===== USERS ===== -->
+<div id="page-users" class="page">
+    <div class="page-header"><h1>Пользователи</h1>
+        <button class="btn btn-primary btn-sm" onclick="showToast('Создание пользователя (демо)')">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Добавить
+        </button>
+    </div>
+    <div class="card"><div class="card-body no-pad">
+        <table><thead><tr><th>ID</th><th>ФИО</th><th>Email</th><th>Роль</th><th>Статус</th></tr></thead>
+        <tbody id="usersTable"></tbody></table>
+    </div></div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ===================== MODAL: RETURN DETAIL ===================== -->
+<div id="detailModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="detailTitle">Заявка №</h2>
+            <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs" id="detailTabs">
+                <div class="tab active" data-tab="tab-info">Информация</div>
+                <div class="tab" data-tab="tab-items">Товары</div>
+                <div class="tab" data-tab="tab-check">Проверка</div>
+                <div class="tab" data-tab="tab-docs">Документы</div>
+                <div class="tab" data-tab="tab-history">История</div>
+            </div>
+            <div id="tab-info" class="tab-content"></div>
+            <div id="tab-items" class="tab-content" style="display:none"></div>
+            <div id="tab-check" class="tab-content" style="display:none"></div>
+            <div id="tab-docs" class="tab-content" style="display:none"></div>
+            <div id="tab-history" class="tab-content" style="display:none"></div>
+            <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap" id="detailActions"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: CREATE RETURN ===================== -->
+<div id="createModal" class="modal-overlay">
+    <div class="modal" style="max-width:700px">
+        <div class="modal-header">
+            <h2>Новая заявка на возврат</h2>
+            <button class="modal-close" onclick="closeModal('createModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="createForm" onsubmit="return createReturn(event)">
+                <div class="form-grid" style="margin-bottom:20px">
+                    <div class="form-group"><label>Клиент (ФИО / Организация)</label><input type="text" id="crClient" required placeholder="Иванов Иван Иванович"></div>
+                    <div class="form-group"><label>Телефон</label><input type="tel" id="crPhone" required placeholder="+7 (999) 123-45-67"></div>
+                    <div class="form-group"><label>Тип возврата</label>
+                        <select id="crType" required><option value="Надлежащее качество">Надлежащее качество</option><option value="Ненадлежащее качество">Ненадлежащее качество</option><option value="Брак">Производственный брак</option></select>
+                    </div>
+                    <div class="form-group"><label>Причина возврата</label>
+                        <select id="crReason" required><option value="">Выберите...</option></select>
+                    </div>
+                    <div class="form-group"><label>Склад</label>
+                        <select id="crWarehouse" required><option value="">Выберите...</option></select>
+                    </div>
+                    <div class="form-group"><label>Комментарий</label><input type="text" id="crComment" placeholder="Дополнительная информация"></div>
+                </div>
+
+                <h4 style="margin-bottom:12px;color:#2c5a4f;font-size:.95rem">Товарные позиции</h4>
+                <div id="crItems">
+                    <div class="item-entry form-grid cols-3" style="margin-bottom:12px;padding:14px;background:#f9fdfb;border-radius:16px;border:1px solid #e3efea;grid-template-columns:2fr 1fr 1fr 1fr auto">
+                        <div class="form-group"><label>Наименование товара</label><input type="text" required placeholder="Ламинат Kronostar D2304"></div>
+                        <div class="form-group"><label>Артикул</label><input type="text" placeholder="D2304"></div>
+                        <div class="form-group"><label>Кол-во</label><input type="number" min="1" value="1" required></div>
+                        <div class="form-group"><label>Цена, руб.</label><input type="number" min="0" step="0.01" required placeholder="1250.00"></div>
+                        <div class="form-group" style="justify-content:flex-end"><label>&nbsp;</label><button type="button" class="btn-icon" onclick="this.closest('.item-entry').remove()" title="Удалить"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addItemRow()" style="margin-bottom:20px">
+                    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Добавить позицию
+                </button>
+
+                <div style="display:flex;gap:12px;justify-content:flex-end;border-top:1px solid #e3efea;padding-top:20px">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('createModal')">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать заявку</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== MODAL: WAREHOUSE CHECK ===================== -->
+<div id="checkModal" class="modal-overlay">
+    <div class="modal" style="max-width:650px">
+        <div class="modal-header">
+            <h2 id="checkTitle">Складская проверка — Заявка №</h2>
+            <button class="modal-close" onclick="closeModal('checkModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="checkForm" onsubmit="return submitCheck(event)">
+                <div id="checkItems"></div>
+                <div class="form-grid" style="margin-top:16px">
+                    <div class="form-group full"><label>Общий комментарий</label><textarea id="chkComment" placeholder="Описание результата осмотра..."></textarea></div>
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;border-top:1px solid #e3efea;padding-top:20px">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('checkModal')">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить результат</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ==================== DATA ====================
+const STATUSES = [
+    {id:'created',name:'Создана',css:'badge-created'},
+    {id:'warehouse',name:'На проверке склада',css:'badge-warehouse'},
+    {id:'waiting',name:'Ожидает решения',css:'badge-waiting'},
+    {id:'expertise',name:'Передана на экспертизу',css:'badge-expertise'},
+    {id:'expertise_done',name:'Экспертиза завершена',css:'badge-expertise-done'},
+    {id:'approved',name:'Одобрена',css:'badge-approved'},
+    {id:'rejected',name:'Отклонена',css:'badge-rejected'},
+    {id:'docs',name:'Документы сформированы',css:'badge-docs'},
+    {id:'finance',name:'Ожидает фин. завершения',css:'badge-finance'},
+    {id:'done',name:'Завершена',css:'badge-done'}
+];
+
+const REASONS = [
+    {id:1,name:'Не подошёл по цвету/оттенку',desc:'Покупатель приобрёл товар, который не подошёл по цвету',active:true},
+    {id:2,name:'Излишки после ремонта',desc:'Остался неиспользованный материал',active:true},
+    {id:3,name:'Производственный брак',desc:'Обнаружен дефект, допущенный при производстве',active:true},
+    {id:4,name:'Повреждение при транспортировке',desc:'Товар повреждён при доставке',active:true},
+    {id:5,name:'Несоответствие заказу',desc:'Доставлен товар, отличающийся от заказанного',active:true},
+    {id:6,name:'Дефект покрытия',desc:'Царапины, сколы или отслоение верхнего слоя',active:true}
+];
+
+const SUPPLIERS = [
+    {id:1,name:'Kronostar',contact:'Петров А.В.',phone:'+7(495)111-22-33',email:'supply@kronostar.ru'},
+    {id:2,name:'Tarkett',contact:'Сидорова Е.Н.',phone:'+7(495)222-33-44',email:'returns@tarkett.com'},
+    {id:3,name:'Quick-Step',contact:'Козлов Д.И.',phone:'+7(495)333-44-55',email:'info@quickstep.ru'},
+    {id:4,name:'Alpine Floor',contact:'Миронов К.С.',phone:'+7(495)444-55-66',email:'quality@alpinefloor.ru'},
+    {id:5,name:'Egger',contact:'Васильев О.Г.',phone:'+7(495)555-66-77',email:'claim@egger.com'}
+];
+
+const WAREHOUSES = [
+    {id:1,name:'Основной склад',address:'г. Краснодар, ул. Промышленная, 15',active:true},
+    {id:2,name:'Склад выставочный зал',address:'г. Краснодар, ул. Красная, 120',active:true},
+    {id:3,name:'Склад брака',address:'г. Краснодар, ул. Промышленная, 15, секция Б',active:true}
+];
+
+const USERS = [
+    {id:1,name:'Иванов Михаил Алексеевич',email:'ivanov@region-service.ru',role:'Менеджер',active:true},
+    {id:2,name:'Петрова Анна Сергеевна',email:'petrova@region-service.ru',role:'Менеджер',active:true},
+    {id:3,name:'Сидоров Дмитрий Юрьевич',email:'sidorov@region-service.ru',role:'Складской сотрудник',active:true},
+    {id:4,name:'Козлова Елена Владимировна',email:'kozlova@region-service.ru',role:'Бухгалтер',active:true},
+    {id:5,name:'Морозов Андрей Петрович',email:'morozov@region-service.ru',role:'Руководитель',active:true},
+    {id:6,name:'Волкова Ирина Николаевна',email:'volkova@region-service.ru',role:'Администратор',active:true}
+];
+
+let returns = [
+    {id:1,number:'ВЗ-000001',client:'Кузнецов Алексей Игоревич',phone:'+7(918)100-20-30',type:'Ненадлежащее качество',reason:'Производственный брак',status:'done',manager:'Иванов М.А.',warehouse:'Основной склад',date:'2025-04-10',comment:'Замковое соединение повреждено на нескольких досках',
+        items:[{name:'Ламинат Kronostar D2304 Дуб Натуральный',article:'D2304',qty:3,unit:'уп.',price:1450},{name:'Подложка 3мм',article:'PL-003',qty:2,unit:'рул.',price:680}],
+        checks:[{item:'Ламинат Kronostar D2304',qty_fact:3,condition:'Повреждена упаковка',defect:'Сколы замкового соединения на 2 досках',inspector:'Сидоров Д.Ю.',date:'2025-04-11'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-04-10'},{name:'Маршрутный лист',type:'route',date:'2025-04-10'},{name:'Акт осмотра товара',type:'inspection',date:'2025-04-11'},{name:'Акт возврата товара',type:'return_act',date:'2025-04-14'},{name:'Акт возврата денежных средств',type:'refund_act',date:'2025-04-15'}],
+        history:[{date:'2025-04-10 09:15',event:'Заявка создана',actor:'Иванов М.А.'},{date:'2025-04-10 09:16',event:'Документы сформированы: заявление, маршрутный лист',actor:'Система'},{date:'2025-04-10 09:20',event:'Статус → На проверке склада',actor:'Иванов М.А.'},{date:'2025-04-11 14:30',event:'Складская проверка завершена',actor:'Сидоров Д.Ю.'},{date:'2025-04-11 14:31',event:'Статус → Ожидает решения',actor:'Система'},{date:'2025-04-12 10:00',event:'Возврат одобрен',actor:'Морозов А.П.'},{date:'2025-04-14 11:00',event:'Документы возврата сформированы',actor:'Система'},{date:'2025-04-15 16:00',event:'Финансовое завершение',actor:'Козлова Е.В.'},{date:'2025-04-15 16:01',event:'Данные переданы в 1С',actor:'Система'},{date:'2025-04-15 16:02',event:'Заявка завершена',actor:'Система'}]
+    },
+    {id:2,number:'ВЗ-000002',client:'ООО "СтройМастер"',phone:'+7(918)200-30-40',type:'Надлежащее качество',reason:'Излишки после ремонта',status:'finance',manager:'Петрова А.С.',warehouse:'Основной склад',date:'2025-05-02',comment:'Остаток после укладки, упаковка не вскрыта',
+        items:[{name:'Кварцвинил Alpine Floor ECO 11-1 Дуб Рустик',article:'ECO11-1',qty:5,unit:'уп.',price:2180}],
+        checks:[{item:'Кварцвинил Alpine Floor ECO 11-1',qty_fact:5,condition:'Упаковка целая, товарный вид сохранён',defect:'Дефектов не обнаружено',inspector:'Сидоров Д.Ю.',date:'2025-05-03'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-02'},{name:'Маршрутный лист',type:'route',date:'2025-05-02'},{name:'Акт осмотра товара',type:'inspection',date:'2025-05-03'},{name:'Акт возврата товара',type:'return_act',date:'2025-05-05'}],
+        history:[{date:'2025-05-02 11:30',event:'Заявка создана',actor:'Петрова А.С.'},{date:'2025-05-02 11:31',event:'Статус → На проверке склада',actor:'Петрова А.С.'},{date:'2025-05-03 10:15',event:'Складская проверка завершена',actor:'Сидоров Д.Ю.'},{date:'2025-05-04 09:00',event:'Возврат одобрен',actor:'Морозов А.П.'},{date:'2025-05-05 14:00',event:'Документы сформированы',actor:'Система'},{date:'2025-05-05 14:01',event:'Статус → Ожидает финансового завершения',actor:'Система'}]
+    },
+    {id:3,number:'ВЗ-000003',client:'Смирнова Ольга Викторовна',phone:'+7(918)300-40-50',type:'Ненадлежащее качество',reason:'Дефект покрытия',status:'expertise',manager:'Иванов М.А.',warehouse:'Основной склад',date:'2025-05-10',comment:'Отслоение верхнего слоя ламината после 2 недель эксплуатации',
+        items:[{name:'Ламинат Egger EPL 046 Дуб Шерман',article:'EPL046',qty:8,unit:'уп.',price:1890}],
+        checks:[{item:'Ламинат Egger EPL 046',qty_fact:8,condition:'Упаковка вскрыта, часть досок уложена',defect:'Отслоение верхнего декоративного слоя на 12 досках, предположительно заводской брак',inspector:'Сидоров Д.Ю.',date:'2025-05-11'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-10'},{name:'Маршрутный лист',type:'route',date:'2025-05-10'},{name:'Акт осмотра товара',type:'inspection',date:'2025-05-11'},{name:'Акт передачи поставщику',type:'transfer',date:'2025-05-13'}],
+        history:[{date:'2025-05-10 14:00',event:'Заявка создана',actor:'Иванов М.А.'},{date:'2025-05-10 14:05',event:'Статус → На проверке склада',actor:'Иванов М.А.'},{date:'2025-05-11 11:00',event:'Складская проверка завершена. Признаки заводского брака',actor:'Сидоров Д.Ю.'},{date:'2025-05-12 09:30',event:'Решение: передать на экспертизу поставщику',actor:'Иванов М.А.'},{date:'2025-05-13 10:00',event:'Товар передан поставщику Egger',actor:'Иванов М.А.'},{date:'2025-05-13 10:01',event:'Уведомление покупателю отправлено',actor:'Система'}]
+    },
+    {id:4,number:'ВЗ-000004',client:'Попов Виталий Андреевич',phone:'+7(918)400-50-60',type:'Надлежащее качество',reason:'Не подошёл по цвету/оттенку',status:'warehouse',manager:'Петрова А.С.',warehouse:'Склад выставочный зал',date:'2025-05-20',comment:'Цвет не совпадает с образцом в магазине',
+        items:[{name:'Линолеум Tarkett Идиллия Нова Танго 3',article:'IDN-T3',qty:12,unit:'м²',price:890},{name:'Плинтус ПВХ 80мм Дуб Серый',article:'PL-80-DG',qty:8,unit:'шт.',price:340}],
+        checks:[],docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-20'},{name:'Маршрутный лист',type:'route',date:'2025-05-20'}],
+        history:[{date:'2025-05-20 16:00',event:'Заявка создана',actor:'Петрова А.С.'},{date:'2025-05-20 16:05',event:'Статус → На проверке склада',actor:'Петрова А.С.'},{date:'2025-05-20 16:06',event:'Уведомление складскому сотруднику',actor:'Система'}]
+    },
+    {id:5,number:'ВЗ-000005',client:'ИП Григорьев С.В.',phone:'+7(918)500-60-70',type:'Ненадлежащее качество',reason:'Повреждение при транспортировке',status:'warehouse',manager:'Иванов М.А.',warehouse:'Основной склад',date:'2025-05-22',comment:'Несколько упаковок деформированы при доставке',
+        items:[{name:'Паркетная доска Polarwood Дуб Меркурий',article:'PW-DM',qty:4,unit:'уп.',price:3450}],
+        checks:[],docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-22'},{name:'Маршрутный лист',type:'route',date:'2025-05-22'}],
+        history:[{date:'2025-05-22 10:30',event:'Заявка создана',actor:'Иванов М.А.'},{date:'2025-05-22 10:35',event:'Статус → На проверке склада',actor:'Иванов М.А.'}]
+    },
+    {id:6,number:'ВЗ-000006',client:'Новикова Мария Дмитриевна',phone:'+7(918)600-70-80',type:'Надлежащее качество',reason:'Излишки после ремонта',status:'created',manager:'Иванов М.А.',warehouse:'Основной склад',date:'2025-05-25',comment:'',
+        items:[{name:'Подложка Tuplex 3мм',article:'TPX-3',qty:3,unit:'рул.',price:1200},{name:'Порог алюминиевый 40мм Серебро',article:'PR-40-S',qty:2,unit:'шт.',price:560}],
+        checks:[],docs:[],
+        history:[{date:'2025-05-25 09:00',event:'Заявка создана',actor:'Иванов М.А.'}]
+    },
+    {id:7,number:'ВЗ-000007',client:'ООО "Домострой"',phone:'+7(918)700-80-90',type:'Ненадлежащее качество',reason:'Несоответствие заказу',status:'waiting',manager:'Петрова А.С.',warehouse:'Основной склад',date:'2025-05-18',comment:'Доставлена коллекция Тоскана вместо Венеция',
+        items:[{name:'Ламинат Kronostar Венеция K005',article:'K005',qty:10,unit:'уп.',price:1350}],
+        checks:[{item:'Ламинат Kronostar',qty_fact:10,condition:'Упаковка целая',defect:'Артикул не соответствует заказу: доставлен K007 (Тоскана) вместо K005 (Венеция)',inspector:'Сидоров Д.Ю.',date:'2025-05-19'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-18'},{name:'Маршрутный лист',type:'route',date:'2025-05-18'},{name:'Акт осмотра товара',type:'inspection',date:'2025-05-19'}],
+        history:[{date:'2025-05-18 13:00',event:'Заявка создана',actor:'Петрова А.С.'},{date:'2025-05-18 13:05',event:'Статус → На проверке склада',actor:'Петрова А.С.'},{date:'2025-05-19 15:00',event:'Складская проверка завершена',actor:'Сидоров Д.Ю.'},{date:'2025-05-19 15:01',event:'Статус → Ожидает решения',actor:'Система'}]
+    },
+    {id:8,number:'ВЗ-000008',client:'Фёдоров Павел Николаевич',phone:'+7(918)800-90-10',type:'Надлежащее качество',reason:'Не подошёл по цвету/оттенку',status:'rejected',manager:'Иванов М.А.',warehouse:'Склад выставочный зал',date:'2025-05-08',comment:'Покупатель вскрыл упаковку и уложил часть материала',
+        items:[{name:'Кварцвинил Quick-Step Balance BACL40127',article:'BACL40127',qty:6,unit:'уп.',price:2650}],
+        checks:[{item:'Кварцвинил Quick-Step Balance',qty_fact:6,condition:'3 упаковки вскрыты, плитка уложена и демонтирована',defect:'Следы клея на замковых соединениях, товарный вид утрачен',inspector:'Сидоров Д.Ю.',date:'2025-05-09'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-08'},{name:'Маршрутный лист',type:'route',date:'2025-05-08'},{name:'Акт осмотра товара',type:'inspection',date:'2025-05-09'},{name:'Уведомление об отказе',type:'rejection',date:'2025-05-10'}],
+        history:[{date:'2025-05-08 11:00',event:'Заявка создана',actor:'Иванов М.А.'},{date:'2025-05-08 11:10',event:'Статус → На проверке склада',actor:'Иванов М.А.'},{date:'2025-05-09 14:00',event:'Складская проверка: товарный вид утрачен',actor:'Сидоров Д.Ю.'},{date:'2025-05-10 09:00',event:'Решение: возврат отклонён. Причина: нарушение условий возврата, товарный вид утрачен',actor:'Морозов А.П.'},{date:'2025-05-10 09:01',event:'Уведомление покупателю отправлено',actor:'Система'}]
+    },
+    {id:9,number:'ВЗ-000009',client:'Белова Наталья Олеговна',phone:'+7(918)900-10-20',type:'Ненадлежащее качество',reason:'Производственный брак',status:'expertise_done',manager:'Петрова А.С.',warehouse:'Основной склад',date:'2025-05-05',comment:'Нарушение геометрии досок',
+        items:[{name:'Ламинат Egger PRO Classic EPL 150',article:'EPL150',qty:6,unit:'уп.',price:1750}],
+        checks:[{item:'Ламинат Egger PRO Classic',qty_fact:6,condition:'Упаковка частично вскрыта',defect:'Выгнутые доски, щели при стыковке. Вероятный заводской брак',inspector:'Сидоров Д.Ю.',date:'2025-05-06'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-05'},{name:'Маршрутный лист',type:'route',date:'2025-05-05'},{name:'Акт осмотра товара',type:'inspection',date:'2025-05-06'},{name:'Акт передачи поставщику',type:'transfer',date:'2025-05-08'}],
+        history:[{date:'2025-05-05 15:00',event:'Заявка создана',actor:'Петрова А.С.'},{date:'2025-05-06 10:00',event:'Складская проверка завершена',actor:'Сидоров Д.Ю.'},{date:'2025-05-07 09:00',event:'Решение: передать на экспертизу',actor:'Петрова А.С.'},{date:'2025-05-08 11:00',event:'Товар передан поставщику Egger',actor:'Петрова А.С.'},{date:'2025-05-20 16:00',event:'Получено заключение: заводской брак подтверждён',actor:'Петрова А.С.'},{date:'2025-05-20 16:01',event:'Статус → Экспертиза завершена',actor:'Система'}]
+    },
+    {id:10,number:'ВЗ-000010',client:'Краснов Олег Сергеевич',phone:'+7(918)010-20-30',type:'Ненадлежащее качество',reason:'Дефект покрытия',status:'approved',manager:'Иванов М.А.',warehouse:'Основной склад',date:'2025-05-15',comment:'Царапины на поверхности при вскрытии упаковки',
+        items:[{name:'Ламинат Kronostar Grunhof D2987',article:'D2987',qty:2,unit:'уп.',price:1290}],
+        checks:[{item:'Ламинат Kronostar Grunhof',qty_fact:2,condition:'Упаковка вскрыта',defect:'Глубокие царапины на декоративном слое 4 досок, заводской дефект',inspector:'Сидоров Д.Ю.',date:'2025-05-16'}],
+        docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-15'},{name:'Маршрутный лист',type:'route',date:'2025-05-15'},{name:'Акт осмотра товара',type:'inspection',date:'2025-05-16'},{name:'Акт возврата товара',type:'return_act',date:'2025-05-18'}],
+        history:[{date:'2025-05-15 10:00',event:'Заявка создана',actor:'Иванов М.А.'},{date:'2025-05-16 11:00',event:'Складская проверка завершена',actor:'Сидоров Д.Ю.'},{date:'2025-05-17 09:00',event:'Возврат одобрен',actor:'Морозов А.П.'},{date:'2025-05-18 14:00',event:'Документы сформированы',actor:'Система'}]
+    },
+    {id:11,number:'ВЗ-000011',client:'Лебедева Татьяна Викторовна',phone:'+7(918)011-22-33',type:'Надлежащее качество',reason:'Излишки после ремонта',status:'created',manager:'Петрова А.С.',warehouse:'Основной склад',date:'2025-05-28',comment:'Осталось 2 упаковки после ремонта',
+        items:[{name:'Линолеум Tarkett Force Dorian 1',article:'FD-1',qty:8,unit:'м²',price:750}],
+        checks:[],docs:[],
+        history:[{date:'2025-05-28 14:20',event:'Заявка создана',actor:'Петрова А.С.'}]
+    },
+    {id:12,number:'ВЗ-000012',client:'ООО "Евроремонт"',phone:'+7(918)012-33-44',type:'Ненадлежащее качество',reason:'Производственный брак',status:'warehouse',manager:'Иванов М.А.',warehouse:'Основной склад',date:'2025-05-29',comment:'Ламинат расслаивается',
+        items:[{name:'Ламинат Alpine Floor Castillo EC 13-03',article:'EC13-03',qty:15,unit:'уп.',price:1680}],
+        checks:[],docs:[{name:'Заявление на возврат',type:'application',date:'2025-05-29'},{name:'Маршрутный лист',type:'route',date:'2025-05-29'}],
+        history:[{date:'2025-05-29 09:30',event:'Заявка создана',actor:'Иванов М.А.'},{date:'2025-05-29 09:35',event:'Статус → На проверке склада',actor:'Иванов М.А.'}]
+    }
+];
+
+// ==================== HELPERS ====================
+function getStatus(id){ return STATUSES.find(s=>s.id===id)||{name:id,css:'badge-created'}; }
+function badge(statusId){ const s=getStatus(statusId); return `<span class="badge ${s.css}">${s.name}</span>`; }
+function calcAmount(items){ return items.reduce((s,i)=>s+i.qty*i.price,0); }
+function fmt(n){ return new Intl.NumberFormat('ru-RU').format(n); }
+function fmtDate(d){ return d; }
+
+function showToast(msg, err){
+    const t=document.getElementById('toast');
+    t.textContent=msg;
+    t.className='toast'+(err?' error':'')+' show';
+    setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+
+// ==================== NAVIGATION ====================
+document.querySelectorAll('.nav-item').forEach(item=>{
+    item.addEventListener('click',function(){
+        const page=this.dataset.page;
+        document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+        document.getElementById('page-'+page).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+        this.classList.add('active');
+        if(page==='reports') updateReports();
+        if(page==='warehouse') renderWarehouse();
+    });
+});
+
+// Directory tabs
+document.querySelectorAll('#dirTabs .tab').forEach(tab=>{
+    tab.addEventListener('click',function(){
+        document.querySelectorAll('#dirTabs .tab').forEach(t=>t.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.dir-content').forEach(d=>d.style.display='none');
+        document.getElementById('dir-'+this.dataset.dir).style.display='block';
+    });
+});
+
+// Detail tabs
+document.querySelectorAll('#detailTabs .tab').forEach(tab=>{
+    tab.addEventListener('click',function(){
+        document.querySelectorAll('#detailTabs .tab').forEach(t=>t.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+        document.getElementById(this.dataset.tab).style.display='block';
+    });
+});
+
+// ==================== DASHBOARD ====================
+function renderDashboard(){
+    document.getElementById('todayDate').textContent=new Date().toLocaleDateString('ru-RU');
+    document.getElementById('statTotal').textContent=returns.length;
+    const active=returns.filter(r=>!['done','rejected'].includes(r.status));
+    document.getElementById('statActive').textContent=active.length;
+    document.getElementById('statDone').textContent=returns.filter(r=>r.status==='done').length;
+    const totalAmt=returns.reduce((s,r)=>s+calcAmount(r.items),0);
+    document.getElementById('statAmount').textContent=fmt(totalAmt);
+
+    // Recent table
+    const tbody=document.getElementById('dashRecentTable');
+    tbody.innerHTML='';
+    returns.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${r.number}</td><td>${r.client}</td><td>${fmtDate(r.date)}</td><td>${badge(r.status)}</td>`;
+        tr.onclick=()=>openDetail(r.id);
+        tbody.appendChild(tr);
+    });
+
+    // Chart
+    const counts={};
+    STATUSES.forEach(s=>counts[s.name]=0);
+    returns.forEach(r=>{ const s=getStatus(r.status); counts[s.name]=(counts[s.name]||0)+1; });
+    const labels=Object.keys(counts).filter(k=>counts[k]>0);
+    const data=labels.map(l=>counts[l]);
+    const colors=['#407368','#c7bc9a','#7ab8a8','#e8a87c','#d4a5a5','#5f9b8c','#f8d7da','#b5c99a','#ffd97d','#aec6cf'];
+
+    const ctx=document.getElementById('dashChart');
+    if(window._dashChart) window._dashChart.destroy();
+    window._dashChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:12},padding:12}}}}});
+
+    // Badges
+    document.getElementById('returnsBadge').textContent=returns.length;
+    document.getElementById('warehouseBadge').textContent=returns.filter(r=>r.status==='warehouse').length;
+}
+
+// ==================== RETURNS LIST ====================
+function renderReturns(){
+    const fS=document.getElementById('fStatus').value;
+    const fDF=document.getElementById('fDateFrom').value;
+    const fDT=document.getElementById('fDateTo').value;
+    const fC=document.getElementById('fClient').value.toLowerCase();
+
+    let filtered=returns.filter(r=>{
+        if(fS && r.status!==fS) return false;
+        if(fDF && r.date<fDF) return false;
+        if(fDT && r.date>fDT) return false;
+        if(fC && !r.client.toLowerCase().includes(fC)) return false;
+        return true;
+    });
+
+    filtered.sort((a,b)=>b.date.localeCompare(a.date));
+
+    const tbody=document.getElementById('returnsTable');
+    tbody.innerHTML='';
+    filtered.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td><strong>${r.number}</strong></td><td>${r.client}</td><td>${fmtDate(r.date)}</td><td style="font-size:.8rem">${r.type}</td><td>${fmt(calcAmount(r.items))} ₽</td><td>${badge(r.status)}</td><td>${r.manager}</td>`;
+        tr.onclick=()=>openDetail(r.id);
+        tbody.appendChild(tr);
+    });
+}
+
+function resetFilters(){
+    document.getElementById('fStatus').value='';
+    document.getElementById('fDateFrom').value='';
+    document.getElementById('fDateTo').value='';
+    document.getElementById('fClient').value='';
+    renderReturns();
+}
+
+// populate status filter
+function initFilters(){
+    const sel=document.getElementById('fStatus');
+    STATUSES.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; sel.appendChild(o); });
+    ['fStatus','fDateFrom','fDateTo','fClient'].forEach(id=>document.getElementById(id).addEventListener('input',renderReturns));
+}
+
+// ==================== DETAIL MODAL ====================
+function openDetail(id){
+    const r=returns.find(x=>x.id===id);
+    if(!r) return;
+    document.getElementById('detailTitle').textContent=`Заявка ${r.number}`;
+
+    // Reset tabs
+    document.querySelectorAll('#detailTabs .tab').forEach((t,i)=>{t.classList.toggle('active',i===0)});
+    document.querySelectorAll('.tab-content').forEach((c,i)=>{c.style.display=i===0?'block':'none'});
+
+    // Info tab
+    document.getElementById('tab-info').innerHTML=`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Статус</span><div style="margin-top:4px">${badge(r.status)}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Дата создания</span><div style="margin-top:4px;font-weight:600">${fmtDate(r.date)}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Клиент</span><div style="margin-top:4px;font-weight:600">${r.client}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Телефон</span><div style="margin-top:4px">${r.phone}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Тип возврата</span><div style="margin-top:4px">${r.type}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Причина</span><div style="margin-top:4px">${r.reason}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Менеджер</span><div style="margin-top:4px">${r.manager}</div></div>
+            <div><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Склад</span><div style="margin-top:4px">${r.warehouse}</div></div>
+            <div style="grid-column:1/-1"><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Сумма</span><div style="margin-top:4px;font-size:1.3rem;font-weight:700;color:#2c5a4f">${fmt(calcAmount(r.items))} ₽</div></div>
+            ${r.comment?`<div style="grid-column:1/-1"><span style="font-size:.78rem;color:#6b8a80;font-weight:600">Комментарий</span><div style="margin-top:4px">${r.comment}</div></div>`:''}
+        </div>`;
+
+    // Items tab
+    document.getElementById('tab-items').innerHTML=`<div class="items-list">${r.items.map(i=>`
+        <div class="item-row">
+            <div class="item-name">${i.name}</div>
+            <div class="item-details">
+                <span>Артикул: <strong>${i.article}</strong></span>
+                <span>Кол-во: <strong>${i.qty} ${i.unit||'шт.'}</strong></span>
+                <span>Цена: <strong>${fmt(i.price)} ₽</strong></span>
+                <span>Сумма: <strong>${fmt(i.qty*i.price)} ₽</strong></span>
+            </div>
+        </div>`).join('')}</div>`;
+
+    // Check tab
+    if(r.checks.length){
+        document.getElementById('tab-check').innerHTML=r.checks.map(c=>`
+            <div style="background:#f9fdfb;border-radius:16px;padding:16px;border:1px solid #e3efea;margin-bottom:12px">
+                <div style="font-weight:600;color:#2c5a4f;margin-bottom:10px">${c.item}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.84rem">
+                    <div><span style="color:#6b8a80">Факт. кол-во:</span> <strong>${c.qty_fact}</strong></div>
+                    <div><span style="color:#6b8a80">Инспектор:</span> <strong>${c.inspector}</strong></div>
+                    <div><span style="color:#6b8a80">Состояние:</span> ${c.condition}</div>
+                    <div><span style="color:#6b8a80">Дата:</span> ${c.date}</div>
+                    <div style="grid-column:1/-1"><span style="color:#6b8a80">Описание дефекта:</span> ${c.defect}</div>
+                </div>
+                <div class="photo-grid"><div class="photo-thumb">Фото 1</div><div class="photo-thumb">Фото 2</div></div>
+            </div>`).join('');
+    } else {
+        document.getElementById('tab-check').innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><p>Проверка ещё не проведена</p></div>';
+    }
+
+    // Docs tab
+    const docIcons={application:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',route:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',inspection:'M9 11l3 3L22 4',transfer:'M17 1l4 4-4 4',return_act:'M9 14l-4-4 4-4',refund_act:'M12 1v21M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',rejection:'M18 6L6 18M6 6l12 12'};
+    if(r.docs.length){
+        document.getElementById('tab-docs').innerHTML=r.docs.map(d=>`
+            <div class="doc-item">
+                <div class="doc-icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="${docIcons[d.type]||docIcons.application}"/></svg></div>
+                <div class="doc-info"><div class="doc-name">${d.name}</div><div class="doc-meta">Сформирован: ${d.date} • PDF</div></div>
+                <button class="btn btn-secondary btn-sm" onclick="showToast('Скачивание документа (демо)')">Скачать</button>
+            </div>`).join('');
+    } else {
+        document.getElementById('tab-docs').innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Документы пока не сформированы</p></div>';
+    }
+
+    // History tab
+    document.getElementById('tab-history').innerHTML=`<div class="timeline">${r.history.map(h=>`
+        <div class="timeline-item">
+            <div class="time">${h.date}</div>
+            <div class="event">${h.event}</div>
+            <div class="actor">${h.actor}</div>
+        </div>`).join('')}</div>`;
+
+    // Action buttons
+    const acts=document.getElementById('detailActions');
+    acts.innerHTML='';
+    const statusActions={
+        'created':[{label:'Передать на склад',next:'warehouse',css:'btn-primary'}],
+        'warehouse':[],
+        'waiting':[{label:'Одобрить возврат',next:'approved',css:'btn-primary'},{label:'Отклонить',next:'rejected',css:'btn-danger'},{label:'На экспертизу',next:'expertise',css:'btn-accent'}],
+        'expertise_done':[{label:'Одобрить возврат',next:'approved',css:'btn-primary'},{label:'Отклонить',next:'rejected',css:'btn-danger'}],
+        'approved':[{label:'Сформировать документы',next:'docs',css:'btn-primary'}],
+        'docs':[{label:'На фин. завершение',next:'finance',css:'btn-primary'}],
+        'finance':[{label:'Подтвердить возврат средств',next:'done',css:'btn-primary'}]
+    };
+    (statusActions[r.status]||[]).forEach(a=>{
+        const btn=document.createElement('button');
+        btn.className='btn '+a.css;
+        btn.textContent=a.label;
+        btn.onclick=()=>{
+            r.status=a.next;
+            const statusName=getStatus(a.next).name;
+            r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:`Статус → ${statusName}`,actor:'Иванов М.А.'});
+
+            // Auto-generate docs on certain transitions
+            if(a.next==='warehouse'){
+                if(!r.docs.find(d=>d.type==='application')) r.docs.push({name:'Заявление на возврат',type:'application',date:new Date().toISOString().slice(0,10)});
+                if(!r.docs.find(d=>d.type==='route')) r.docs.push({name:'Маршрутный лист',type:'route',date:new Date().toISOString().slice(0,10)});
+                r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Документы сформированы: заявление на возврат, маршрутный лист',actor:'Система'});
+            }
+            if(a.next==='expertise'){
+                r.docs.push({name:'Акт передачи поставщику',type:'transfer',date:new Date().toISOString().slice(0,10)});
+                r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Акт передачи поставщику сформирован',actor:'Система'});
+            }
+            if(a.next==='docs'){
+                r.docs.push({name:'Акт возврата товара',type:'return_act',date:new Date().toISOString().slice(0,10)});
+                r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Документы возврата сформированы',actor:'Система'});
+            }
+            if(a.next==='done'){
+                r.docs.push({name:'Акт возврата денежных средств',type:'refund_act',date:new Date().toISOString().slice(0,10)});
+                r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Данные переданы в 1С:Предприятие',actor:'Система'});
+                r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Уведомление покупателю отправлено',actor:'Система'});
+            }
+            if(a.next==='rejected'){
+                r.docs.push({name:'Уведомление об отказе',type:'rejection',date:new Date().toISOString().slice(0,10)});
+                r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Уведомление покупателю об отказе отправлено',actor:'Система'});
+            }
+
+            showToast(`Статус изменён → ${statusName}`);
+            closeModal('detailModal');
+            renderAll();
+        };
+        acts.appendChild(btn);
+    });
+
+    openModal('detailModal');
+}
+
+// ==================== CREATE RETURN ====================
+function openCreateModal(){
+    // populate selects
+    const rSel=document.getElementById('crReason');
+    rSel.innerHTML='<option value="">Выберите...</option>';
+    REASONS.filter(r=>r.active).forEach(r=>{ const o=document.createElement('option'); o.value=r.name; o.textContent=r.name; rSel.appendChild(o); });
+
+    const wSel=document.getElementById('crWarehouse');
+    wSel.innerHTML='<option value="">Выберите...</option>';
+    WAREHOUSES.filter(w=>w.active).forEach(w=>{ const o=document.createElement('option'); o.value=w.name; o.textContent=w.name; wSel.appendChild(o); });
+
+    document.getElementById('createForm').reset();
+    // reset items to single row
+    document.getElementById('crItems').innerHTML=`
+        <div class="item-entry form-grid" style="margin-bottom:12px;padding:14px;background:#f9fdfb;border-radius:16px;border:1px solid #e3efea;grid-template-columns:2fr 1fr 1fr 1fr auto">
+            <div class="form-group"><label>Наименование</label><input type="text" required placeholder="Ламинат Kronostar D2304"></div>
+            <div class="form-group"><label>Артикул</label><input type="text" placeholder="D2304"></div>
+            <div class="form-group"><label>Кол-во</label><input type="number" min="1" value="1" required></div>
+            <div class="form-group"><label>Цена, руб.</label><input type="number" min="0" step="0.01" required placeholder="1250"></div>
+            <div class="form-group" style="justify-content:flex-end"><label>&nbsp;</label><button type="button" class="btn-icon" onclick="this.closest('.item-entry').remove()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+        </div>`;
+    openModal('createModal');
+}
+
+function addItemRow(){
+    const div=document.createElement('div');
+    div.className='item-entry form-grid';
+    div.style.cssText='margin-bottom:12px;padding:14px;background:#f9fdfb;border-radius:16px;border:1px solid #e3efea;grid-template-columns:2fr 1fr 1fr 1fr auto';
+    div.innerHTML=`
+        <div class="form-group"><label>Наименование</label><input type="text" required placeholder="Название товара"></div>
+        <div class="form-group"><label>Артикул</label><input type="text" placeholder="ART-XXX"></div>
+        <div class="form-group"><label>Кол-во</label><input type="number" min="1" value="1" required></div>
+        <div class="form-group"><label>Цена, руб.</label><input type="number" min="0" step="0.01" required placeholder="0.00"></div>
+        <div class="form-group" style="justify-content:flex-end"><label>&nbsp;</label><button type="button" class="btn-icon" onclick="this.closest('.item-entry').remove()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    document.getElementById('crItems').appendChild(div);
+}
+
+function createReturn(e){
+    e.preventDefault();
+    const items=[];
+    document.querySelectorAll('.item-entry').forEach(row=>{
+        const inputs=row.querySelectorAll('input');
+        items.push({name:inputs[0].value,article:inputs[1].value,qty:parseInt(inputs[2].value),unit:'шт.',price:parseFloat(inputs[3].value)});
+    });
+    if(!items.length){showToast('Добавьте хотя бы одну позицию',true);return false;}
+
+    const id=returns.length+1;
+    const num='ВЗ-'+String(id).padStart(6,'0');
+    const today=new Date().toISOString().slice(0,10);
+    returns.push({
+        id, number:num,
+        client:document.getElementById('crClient').value,
+        phone:document.getElementById('crPhone').value,
+        type:document.getElementById('crType').value,
+        reason:document.getElementById('crReason').value,
+        status:'created',
+        manager:'Иванов М.А.',
+        warehouse:document.getElementById('crWarehouse').value,
+        date:today,
+        comment:document.getElementById('crComment').value,
+        items, checks:[], docs:[],
+        history:[{date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Заявка создана',actor:'Иванов М.А.'}]
+    });
+
+    closeModal('createModal');
+    showToast(`Заявка ${num} создана`);
+    renderAll();
+    return false;
+}
+
+// ==================== WAREHOUSE ====================
+function renderWarehouse(){
+    const wh=returns.filter(r=>r.status==='warehouse');
+    const tbody=document.getElementById('warehouseTable');
+    tbody.innerHTML='';
+    if(!wh.length){
+        tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px;color:#8aaa9f">Нет заявок на проверку</td></tr>';
+        return;
+    }
+    wh.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td><strong>${r.number}</strong></td><td>${r.client}</td><td>${r.date}</td><td>${r.items.map(i=>i.name).join(', ')}</td>
+            <td><button class="btn btn-primary btn-sm" onclick="openCheckModal(${r.id})">Провести проверку</button></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function openCheckModal(id){
+    const r=returns.find(x=>x.id===id);
+    if(!r) return;
+    document.getElementById('checkTitle').textContent=`Складская проверка — ${r.number}`;
+    const wrap=document.getElementById('checkItems');
+    wrap.innerHTML=r.items.map((item,i)=>`
+        <div style="background:#f9fdfb;border-radius:16px;padding:16px;border:1px solid #e3efea;margin-bottom:12px">
+            <div style="font-weight:600;color:#2c5a4f;margin-bottom:12px">${item.name} (${item.article})</div>
+            <div class="form-grid">
+                <div class="form-group"><label>Факт. кол-во</label><input type="number" value="${item.qty}" min="0" id="chk_qty_${i}"></div>
+                <div class="form-group"><label>Состояние упаковки</label>
+                    <select id="chk_cond_${i}"><option>Упаковка целая</option><option>Упаковка повреждена</option><option>Упаковка вскрыта</option><option>Без упаковки</option></select>
+                </div>
+                <div class="form-group full"><label>Описание дефекта</label><textarea id="chk_def_${i}" rows="2" placeholder="Опишите выявленные дефекты..."></textarea></div>
+            </div>
+        </div>`).join('');
+    document.getElementById('checkForm').dataset.returnId=id;
+    openModal('checkModal');
+}
+
+function submitCheck(e){
+    e.preventDefault();
+    const id=parseInt(document.getElementById('checkForm').dataset.returnId);
+    const r=returns.find(x=>x.id===id);
+    if(!r) return false;
+
+    r.checks=r.items.map((item,i)=>({
+        item:item.name,
+        qty_fact:parseInt(document.getElementById('chk_qty_'+i).value),
+        condition:document.getElementById('chk_cond_'+i).value,
+        defect:document.getElementById('chk_def_'+i).value||'Дефектов не обнаружено',
+        inspector:'Сидоров Д.Ю.',
+        date:new Date().toISOString().slice(0,10)
+    }));
+
+    r.docs.push({name:'Акт осмотра товара',type:'inspection',date:new Date().toISOString().slice(0,10)});
+    r.status='waiting';
+    r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Складская проверка завершена',actor:'Сидоров Д.Ю.'});
+    r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Акт осмотра товара сформирован',actor:'Система'});
+    r.history.push({date:new Date().toISOString().slice(0,16).replace('T',' '),event:'Статус → Ожидает решения',actor:'Система'});
+
+    closeModal('checkModal');
+    showToast('Результат проверки сохранён');
+    renderAll();
+    return false;
+}
+
+// ==================== REPORTS ====================
+function updateReports(){
+    const from=document.getElementById('rDateFrom').value;
+    const to=document.getElementById('rDateTo').value;
+    let filtered=returns.filter(r=>(!from||r.date>=from)&&(!to||r.date<=to));
+
+    // Chart 1: by month
+    const byMonth={};
+    filtered.forEach(r=>{const m=r.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+1;});
+    const months=Object.keys(byMonth).sort();
+    const ctx1=document.getElementById('reportChart1');
+    if(window._rc1) window._rc1.destroy();
+    window._rc1=new Chart(ctx1,{type:'bar',data:{labels:months,datasets:[{label:'Количество заявок',data:months.map(m=>byMonth[m]),backgroundColor:'#407368',borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+
+    // Chart 2: by reason
+    const byReason={};
+    filtered.forEach(r=>{byReason[r.reason]=(byReason[r.reason]||0)+1;});
+    const reasons=Object.keys(byReason);
+    const ctx2=document.getElementById('reportChart2');
+    if(window._rc2) window._rc2.destroy();
+    const reasonColors=['#407368','#c7bc9a','#7ab8a8','#e8a87c','#d4a5a5','#5f9b8c'];
+    window._rc2=new Chart(ctx2,{type:'pie',data:{labels:reasons,datasets:[{data:reasons.map(r=>byReason[r]),backgroundColor:reasonColors.slice(0,reasons.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},padding:10}}}}});
+
+    // Supplier summary
+    const bySupplier={};
+    filtered.forEach(r=>{
+        r.items.forEach(item=>{
+            let sup='Прочие';
+            SUPPLIERS.forEach(s=>{if(item.name.toLowerCase().includes(s.name.toLowerCase())) sup=s.name;});
+            if(!bySupplier[sup]) bySupplier[sup]={count:0,defect:0,sum:0};
+            bySupplier[sup].count++;
+            bySupplier[sup].sum+=item.qty*item.price;
+            if(r.reason.includes('брак')||r.reason.includes('Дефект')) bySupplier[sup].defect++;
+        });
+    });
+    const stb=document.getElementById('supplierSummary');
+    stb.innerHTML='';
+    Object.entries(bySupplier).sort((a,b)=>b[1].count-a[1].count).forEach(([name,d])=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${name}</td><td>${d.count}</td><td>${d.defect}</td><td>${fmt(d.sum)} ₽</td>`;
+        stb.appendChild(tr);
+    });
+}
+
+function exportCSV(){
+    const rows=[['Номер','Клиент','Дата','Тип','Причина','Статус','Сумма','Менеджер']];
+    returns.forEach(r=>{
+        rows.push([r.number,r.client,r.date,r.type,r.reason,getStatus(r.status).name,calcAmount(r.items),r.manager]);
+    });
+    const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+    const bom='﻿';
+    const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download='returns_report.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast('Отчёт экспортирован');
+}
+
+// ==================== DIRECTORIES ====================
+function renderDirectories(){
+    // Reasons
+    const rt=document.getElementById('reasonsTable');
+    rt.innerHTML='';
+    REASONS.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${r.id}</td><td>${r.name}</td><td style="color:#6b8a80;font-size:.82rem">${r.desc}</td><td>${r.active?'<span class="badge badge-approved">Да</span>':'<span class="badge badge-rejected">Нет</span>'}</td>`;
+        rt.appendChild(tr);
+    });
+
+    // Suppliers
+    const st=document.getElementById('suppliersTable');
+    st.innerHTML='';
+    SUPPLIERS.forEach(s=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${s.id}</td><td><strong>${s.name}</strong></td><td>${s.contact}</td><td>${s.phone}</td><td>${s.email}</td>`;
+        st.appendChild(tr);
+    });
+
+    // Warehouses
+    const wt=document.getElementById('warehousesTable');
+    wt.innerHTML='';
+    WAREHOUSES.forEach(w=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${w.id}</td><td><strong>${w.name}</strong></td><td>${w.address}</td><td>${w.active?'<span class="badge badge-approved">Да</span>':'<span class="badge badge-rejected">Нет</span>'}</td>`;
+        wt.appendChild(tr);
+    });
+}
+
+// ==================== USERS ====================
+function renderUsers(){
+    const tbody=document.getElementById('usersTable');
+    tbody.innerHTML='';
+    USERS.forEach(u=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${u.id}</td><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge badge-docs">${u.role}</span></td><td>${u.active?'<span class="badge badge-approved">Активен</span>':'<span class="badge badge-rejected">Заблокирован</span>'}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+// ==================== INIT ====================
+function renderAll(){
+    renderDashboard();
+    renderReturns();
+    renderWarehouse();
+    renderDirectories();
+    renderUsers();
+}
+
+initFilters();
+renderAll();
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+    m.addEventListener('click',function(e){if(e.target===this) this.classList.remove('show');});
+});
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape') document.querySelectorAll('.modal-overlay.show').forEach(m=>m.classList.remove('show'));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  ArrowColor #000000
+}
+hide circle
+hide methods
+skinparam classAttributeFontColor #000000
+
+title Физическая модель базы данных
+
+' ===================== СПРАВОЧНИКИ И ПОЛЬЗОВАТЕЛИ =====================
+
+entity "roles" as roles {
+  **PK** **id:SERIAL**
+  __
+  name:VARCHAR(50)
+  description:VARCHAR(255)
+}
+
+entity "users" as users {
+  **PK** **id:SERIAL**
+  __
+  email:VARCHAR(255)
+  hashed_password:VARCHAR(255)
+  last_name:VARCHAR(100)
+  first_name:VARCHAR(100)
+  patronymic:VARCHAR(100)
+  phone:VARCHAR(20)
+  **FK** role_id:INT
+  is_active:BOOL
+  created_at:TIMESTAMP
+}
+
+entity "clients" as clients {
+  **PK** **id:SERIAL**
+  __
+  name:VARCHAR(255)
+  phone:VARCHAR(20)
+  email:VARCHAR(255)
+  address:VARCHAR(500)
+  comment:VARCHAR(1000)
+  created_at:TIMESTAMP
+}
+
+entity "return_reasons" as reasons {
+  **PK** **id:SERIAL**
+  __
+  name:VARCHAR(255)
+  description:VARCHAR(500)
+  is_active:BOOL
+}
+
+entity "return_statuses" as statuses {
+  **PK** **id:SERIAL**
+  __
+  name:VARCHAR(100)
+  code:VARCHAR(50)
+  description:VARCHAR(500)
+  sort_order:INT
+}
+
+entity "suppliers" as suppliers {
+  **PK** **id:SERIAL**
+  __
+  name:VARCHAR(255)
+  contact_person:VARCHAR(255)
+  phone:VARCHAR(20)
+  email:VARCHAR(255)
+  address:VARCHAR(500)
+  comment:VARCHAR(1000)
+  is_active:BOOL
+}
+
+entity "warehouses" as warehouses {
+  **PK** **id:SERIAL**
+  __
+  name:VARCHAR(255)
+  address:VARCHAR(500)
+  is_active:BOOL
+}
+
+' ===================== ЦЕНТР: ЗАЯВКА =====================
+
+entity "return_requests" as requests {
+  **PK** **id:SERIAL**
+  __
+  number:VARCHAR(20)
+  **FK** client_id:INT
+  return_type:VARCHAR(100)
+  **FK** reason_id:INT
+  status:VARCHAR(50)
+  **FK** manager_id:INT
+  **FK** warehouse_id:INT
+  comment:TEXT
+  total_amount:NUMERIC(12,2)
+  created_at:TIMESTAMP
+  updated_at:TIMESTAMP
+}
+
+entity "return_items" as items {
+  **PK** **id:SERIAL**
+  __
+  **FK** return_request_id:INT
+  product_name:VARCHAR(500)
+  article:VARCHAR(100)
+  quantity:INT
+  unit:VARCHAR(20)
+  price:NUMERIC(12,2)
+}
+
+entity "warehouse_checks" as checks {
+  **PK** **id:SERIAL**
+  __
+  **FK** return_item_id:INT
+  quantity_fact:INT
+  packaging_condition:VARCHAR(255)
+  defect_description:TEXT
+  photos:TEXT
+  **FK** inspector_id:INT
+  checked_at:TIMESTAMP
+}
+
+entity "supplier_examinations" as exams {
+  **PK** **id:SERIAL**
+  __
+  **FK** return_request_id:INT
+  **FK** supplier_id:INT
+  transfer_date:TIMESTAMP
+  result_date:TIMESTAMP
+  conclusion:VARCHAR(100)
+  details:TEXT
+  created_at:TIMESTAMP
+}
+
+entity "documents" as documents {
+  **PK** **id:SERIAL**
+  __
+  **FK** return_request_id:INT
+  document_type:VARCHAR(100)
+  file_name:VARCHAR(500)
+  file_path:VARCHAR(1000)
+  generated_by:VARCHAR(50)
+  created_at:TIMESTAMP
+}
+
+entity "action_history" as history {
+  **PK** **id:SERIAL**
+  __
+  **FK** return_request_id:INT
+  **FK** user_id:INT
+  action:VARCHAR(255)
+  old_status:VARCHAR(50)
+  new_status:VARCHAR(50)
+  details:TEXT
+  created_at:TIMESTAMP
+}
+
+entity "notifications" as notifications {
+  **PK** **id:SERIAL**
+  __
+  **FK** return_request_id:INT
+  recipient_type:VARCHAR(20)
+  recipient_contact:VARCHAR(255)
+  channel:VARCHAR(20)
+  message:TEXT
+  is_sent:BOOL
+  sent_at:TIMESTAMP
+  created_at:TIMESTAMP
+}
+
+' ===================== СВЯЗИ (crow's foot) =====================
+
+' Справочники -> заявка (верхний ряд)
+roles ||--o{ users
+users ||--o{ requests
+clients ||--o{ requests
+reasons ||--o{ requests
+warehouses ||--o{ requests
+
+' Заявка -> зависимые таблицы (нижний ряд, порядок слева направо)
+requests ||--o{ exams
+requests ||--o{ history
+requests ||--o{ items
+requests ||--o{ documents
+requests ||--o{ notifications
+
+' Дополнительные связи
+suppliers ||--o{ exams
+users ||--o{ history
+items ||--o{ checks
+users ||--o{ checks
+
+@enduml

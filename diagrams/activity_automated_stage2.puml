@@ -1,0 +1,42 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam activityBorderColor #333333
+skinparam activityBackgroundColor #F4FAF7
+skinparam activityDiamondBackgroundColor #FFF3CD
+skinparam activityDiamondBorderColor #856404
+skinparam ArrowColor #407368
+skinparam swimlaneBorderColor #999999
+skinparam swimlaneTitleFontStyle bold
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+
+title Рисунок 1.4 — Диаграмма деятельности автоматизированного процесса:\nэкспертиза, принятие решения и завершение возврата в АИС
+
+|Менеджер|
+start
+if (Признаки\nбрака?) then (да)
+  :Передача товара\nпоставщику на экспертизу;
+  |#E0F0EA|АИС|
+  :Генерация акта передачи,\nуведомление покупателя;
+  :Приём документа с результатами\nэкспертизы от поставщика\nпо каналу связи;
+  :Извлечение данных заключения\nи сохранение в заявке;
+  |Менеджер|
+  :Проверка результата\nэкспертизы в системе;
+else (нет)
+endif
+
+if (Решение?) then (одобрить)
+  |#E0F0EA|АИС|
+  :Генерация документов возврата,\nпередача данных в 1С,\nуведомление покупателя;
+  |Менеджер|
+  :Подтверждение возврата\nденежных средств;
+  |#E0F0EA|АИС|
+  :Акт возврата средств,\nстатус «завершена»,\nфинальное уведомление;
+  stop
+else (отклонить)
+  |#E0F0EA|АИС|
+  :Уведомление об отказе\nс указанием причины;
+  stop
+endif
+
+@enduml

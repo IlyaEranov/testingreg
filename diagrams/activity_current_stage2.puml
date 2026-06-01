@@ -1,0 +1,35 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam activityBorderColor #333333
+skinparam activityBackgroundColor #F4FAF7
+skinparam activityDiamondBackgroundColor #FFF3CD
+skinparam activityDiamondBorderColor #856404
+skinparam ArrowColor #407368
+skinparam swimlaneBorderColor #999999
+skinparam swimlaneTitleFontStyle bold
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+
+title Рисунок 1.2 — Диаграмма деятельности существующего процесса:\nэкспертиза, принятие решения и завершение возврата
+
+|Складской сотрудник|
+start
+if (Обнаружен\nдефект?) then (да)
+  :Согласование передачи\nна экспертизу с менеджером;
+  |Менеджер|
+  :Оформление передачи\nтовара поставщику;
+  :Ожидание и получение\nзаключения поставщика;
+  if (Заключение?) then (нарушение\nэксплуатации)
+    :Отказ в возврате,\nуведомление по телефону;
+    stop
+  else (брак / транспортное\nповреждение)
+  endif
+else (нет)
+  |Менеджер|
+endif
+
+:Оформление документа возврата\nденежных средств в 1С вручную;
+:Выдача средств и информирование\nпокупателя по телефону;
+stop
+
+@enduml

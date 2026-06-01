@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Docker volumes / local data
+app/backend/uploads/
+app/backend/documents/
+
+# Env
+.env
+.env.local
+
+# Tools
+diagrams/plantuml.jar
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,58 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.2
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceLifeLineBorderColor #999999
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 220
+skinparam defaultFontName "Segoe UI"
+
+title Рисунок 2.3 — Диаграмма последовательности процесса\nавторизации и аутентификации пользователя
+
+actor "Пользователь" as user
+participant "Клиентская часть" as client
+participant "Сервер (бэкенд)" as server
+database "База данных" as db
+
+user -> client : Запрос на вход\n(ввод email и пароля)
+client -> server : POST /api/auth/login\n(email, пароль)
+activate server
+
+server -> db : Запрос учётной записи по email
+activate db
+db --> server : Данные учётной записи\n(хеш пароля, роль)
+deactivate db
+
+server -> server : Хеширование пароля (bcrypt)\nи сравнение с сохранённым хешем
+activate server
+deactivate server
+
+alt Авторизация выполнилась
+    server -> server : Формирование JWT-токена\n(id, роль, срок действия, подпись)
+    activate server
+    deactivate server
+    server --> client : 200 OK (access_token)
+    client -> client : Сохранение токена в браузере
+    activate client
+    deactivate client
+    client --> user : Переход в личный кабинет
+
+    user -> client : Действие в интерфейсе
+    client -> server : Запрос к API\n(Authorization: Bearer <token>)
+    server -> server : Проверка подписи токена\nи прав доступа по роли
+    activate server
+    deactivate server
+    server -> db : Выполнение операции
+    activate db
+    db --> server : Результат
+    deactivate db
+    server --> client : 200 OK (данные операции)
+    client --> user : Отображение результата
+else Авторизация не выполнилась
+    server --> client : 401 Unauthorized
+    client --> user : Сообщение об ошибке входа
+end
+deactivate server
+
+@enduml
