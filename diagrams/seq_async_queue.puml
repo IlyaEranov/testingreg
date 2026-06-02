@@ -1,0 +1,61 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.2
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceLifeLineBorderColor #999999
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 230
+skinparam defaultFontName "Segoe UI"
+
+title Рисунок 2.4 — Диаграмма последовательности асинхронного\nвзаимодействия с внешними системами через очередь сообщений
+
+actor "Пользователь" as user
+participant "Бэкенд\nбизнес-логики" as backend
+queue "Очередь\nсообщений" as queue
+participant "Обработчик\nочереди" as worker
+participant "1С:Предприятие\n(внешняя система)" as onec
+database "База\nданных" as db
+
+user -> backend : Действие, требующее\nобмена с 1С
+activate backend
+
+backend -> db : Сохранение изменений\nпо заявке
+activate db
+db --> backend : Данные сохранены
+deactivate db
+
+backend -> queue : Поместить задание\n(обмен с 1С)
+activate queue
+queue --> backend : Задание принято
+backend --> user : Результат\n(не дожидаясь обмена)
+deactivate backend
+
+note over queue, worker
+  Длительная операция выполняется
+  в фоне, независимо от запроса
+end note
+
+queue -> worker : Извлечение задания
+deactivate queue
+activate worker
+
+worker -> onec : Запрос: создание документа\nи обновление остатков
+activate onec
+
+alt Внешняя система доступна
+    onec --> worker : 200 OK\nДокумент проведён
+    deactivate onec
+    worker -> db : Фиксация результата\nв истории действий
+    activate db
+    db --> worker : Записано
+    deactivate db
+else Внешняя система недоступна
+    worker -> worker : Фиксация ошибки,\nповтор через интервал
+    activate worker
+    deactivate worker
+    worker -> queue : Возврат задания в очередь\n(повторная попытка)
+end
+deactivate worker
+
+@enduml

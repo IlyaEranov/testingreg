@@ -7,7 +7,7 @@ skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam maxMessageSize 200
 
-title Рисунок 2.2 — Диаграмма последовательности:\nрегистрация заявки и складская проверка
+title Рисунок 2.5 — Диаграмма последовательности:\nрегистрация заявки и складская проверка
 
 actor "Покупатель" as customer
 actor "Менеджер" as manager

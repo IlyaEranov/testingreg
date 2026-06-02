@@ -7,27 +7,38 @@ skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam maxMessageSize 200
 
-title Рисунок 2.4 — Диаграмма последовательности:\nфинансовое завершение и закрытие заявки
+title Рисунок 2.7 — Диаграмма последовательности:\nфинансовое завершение и закрытие заявки
 
 actor "Покупатель" as customer
-actor "Бухгалтер" as accountant
+actor "Менеджер" as manager
 participant "АИС" as ais
+participant "Очередь\nсообщений" as queue
+participant "Обработчик\nочереди" as worker
 participant "1С:Предприятие" as onec
 
 == 5. Финансовое завершение ==
 
-accountant -> ais : Подтверждение возврата\nденежных средств
+manager -> ais : Подтверждение возврата\nденежных средств
 activate ais
-ais -> onec : Создание документа возврата\nи обновление остатков
-activate onec
-onec --> ais : Документы проведены
-deactivate onec
+ais -> ais : Статус: «завершена»,\nфиксация результата в БД
+ais -> queue : Задание: обмен с 1С
+ais --> manager : Заявка завершена
 deactivate ais
+
+queue -> worker : Извлечение задания
+activate worker
+worker -> onec : Создание документа возврата\nи обновление остатков
+activate onec
+onec --> worker : Документы проведены
+deactivate onec
+deactivate worker
 
 == 6. Закрытие заявки ==
 
-ais -> ais : Статус: «завершена»
-ais --> customer : Уведомление:\n«Заявка закрыта,\nсредства возвращены»
-ais --> accountant : Заявка закрыта
+ais -> queue : Задание: уведомить покупателя
+queue -> worker : Извлечение задания
+activate worker
+worker --> customer : Уведомление:\n«Заявка закрыта,\nсредства возвращены»
+deactivate worker
 
 @enduml

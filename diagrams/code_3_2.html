@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1e1e2e; display:flex; justify-content:center; padding:40px; font-family:'Segoe UI',sans-serif; }
+  .window {
+    background:#282a36; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.5);
+    width:760px; overflow:hidden;
+  }
+  .titlebar { background:#21222c; padding:12px 16px; display:flex; align-items:center; gap:8px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .red{background:#ff5f56;} .yellow{background:#ffbd2e;} .green{background:#27c93f;}
+  .filename { color:#8a8d98; font-size:13px; margin-left:12px; font-family:'Consolas',monospace; }
+  pre { padding:20px 24px; margin:0; font-family:'Consolas','Courier New',monospace; font-size:14px; line-height:1.6; color:#f8f8f2; overflow-x:auto; }
+  .kw{color:#ff79c6;}     /* keyword */
+  .fn{color:#50fa7b;}     /* function */
+  .str{color:#f1fa8c;}    /* string */
+  .com{color:#6272a4;}    /* comment */
+  .num{color:#bd93f9;}    /* number */
+  .self{color:#ffb86c; font-style:italic;} /* self/param */
+  .builtin{color:#8be9fd;}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+    <span class="filename">services/onec_service.py</span>
+  </div>
+<pre><span class="kw">async def</span> <span class="fn">create_return_document</span>(
+    <span class="self">self</span>, return_number: <span class="builtin">str</span>, client_name: <span class="builtin">str</span>,
+    items: <span class="builtin">list</span>[<span class="builtin">dict</span>], total_amount: <span class="builtin">float</span>
+) -&gt; <span class="builtin">dict</span>:
+    <span class="com">"""POST /api/returns — создание документа
+    «Возврат товаров от покупателя» в 1С."""</span>
+    payload = {
+        <span class="str">"documentType"</span>: <span class="str">"ReturnFromBuyer"</span>,
+        <span class="str">"number"</span>: return_number,
+        <span class="str">"client"</span>: client_name,
+        <span class="str">"items"</span>: [
+            {
+                <span class="str">"productName"</span>: item[<span class="str">"product_name"</span>],
+                <span class="str">"article"</span>: item.<span class="fn">get</span>(<span class="str">"article"</span>, <span class="str">""</span>),
+                <span class="str">"quantity"</span>: item[<span class="str">"quantity"</span>],
+                <span class="str">"price"</span>: <span class="builtin">float</span>(item[<span class="str">"price"</span>]),
+            }
+            <span class="kw">for</span> item <span class="kw">in</span> items
+        ],
+        <span class="str">"totalAmount"</span>: total_amount,
+    }
+    <span class="kw">return await</span> <span class="self">self</span>._<span class="fn">post</span>(<span class="str">"/returns"</span>, payload)</pre>
+</div>
+</body>
+</html>

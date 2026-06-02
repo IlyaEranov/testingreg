@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1e1e2e; display:flex; justify-content:center; padding:40px; font-family:'Segoe UI',sans-serif; }
+  .window { background:#0c0c0c; border-radius:10px; box-shadow:0 20px 50px rgba(0,0,0,.6); width:880px; overflow:hidden; }
+  .titlebar { background:#323233; padding:10px 14px; display:flex; align-items:center; gap:8px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .red{background:#ff5f56;} .yellow{background:#ffbd2e;} .green{background:#27c93f;}
+  .titletext { color:#ccc; font-size:13px; margin-left:10px; font-family:'Consolas',monospace; }
+  pre { padding:18px 22px; margin:0; font-family:'Consolas','Courier New',monospace; font-size:13px; line-height:1.55; color:#cccccc; overflow-x:auto; }
+  .prompt{color:#27c93f;}
+  .cmd{color:#ffffff;}
+  .path{color:#3b8eea;}
+  .ok{color:#27c93f;}
+  .name{color:#e5c07b;}
+  .dim{color:#888;}
+  .run{color:#56b6c2;}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+    <span class="titletext">Windows PowerShell — app</span>
+  </div>
+<pre><span class="path">PS D:\repo\public\diplomv0.2\app&gt;</span> <span class="cmd">docker compose up</span>
+
+<span class="dim">[+] Running 6/6</span>
+ <span class="ok">✔</span> Network app_default        <span class="name">Created</span>                                  <span class="dim">0.1s</span>
+ <span class="ok">✔</span> Container app-db-1         <span class="name">Healthy</span>                                  <span class="dim">6.2s</span>
+ <span class="ok">✔</span> Container app-redis-1      <span class="name">Healthy</span>                                  <span class="dim">6.1s</span>
+ <span class="ok">✔</span> Container app-backend-1    <span class="name">Started</span>                                  <span class="dim">6.8s</span>
+ <span class="ok">✔</span> Container app-worker-1     <span class="name">Started</span>                                  <span class="dim">6.8s</span>
+ <span class="ok">✔</span> Container app-frontend-1   <span class="name">Started</span>                                  <span class="dim">7.0s</span>
+
+<span class="run">db-1</span>       | database system is ready to accept connections
+<span class="run">redis-1</span>    | Ready to accept connections tcp
+<span class="run">backend-1</span>  | Database seeded successfully!
+<span class="run">backend-1</span>  | INFO:     Uvicorn running on http://0.0.0.0:8000
+<span class="run">backend-1</span>  | INFO:     Application startup complete.
+<span class="run">worker-1</span>   | [tasks]
+<span class="run">worker-1</span>   |   . tasks.send_notification
+<span class="run">worker-1</span>   |   . tasks.sync_with_onec
+<span class="run">worker-1</span>   | Connected to redis://redis:6379/0
+<span class="run">worker-1</span>   | celery@worker ready.
+<span class="run">frontend-1</span> | ▲ Next.js 14.2.35
+<span class="run">frontend-1</span> | - Local:   http://localhost:3000
+<span class="run">frontend-1</span> | ✓ Ready in 2.5s</pre>
+</div>
+</body>
+</html>

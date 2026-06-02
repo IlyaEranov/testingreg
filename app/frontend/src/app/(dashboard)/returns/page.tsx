@@ -526,12 +526,12 @@ function ReturnsInner() {
 
               <h3 className="text-sm font-bold text-brand-600 mb-3">Товарные позиции</h3>
               {form.items.map((item: any, i: number) => (
-                <div key={i} className="grid grid-cols-[2fr_1fr_70px_1fr_auto] gap-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100">
-                  <input required value={item.product_name} onChange={(e) => updateItem(i, "product_name", e.target.value)} className="px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Наименование" />
-                  <input value={item.article} onChange={(e) => updateItem(i, "article", e.target.value)} className="px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Артикул" />
-                  <input type="number" min="1" required value={item.quantity} onChange={(e) => updateItem(i, "quantity", Number(e.target.value))} className="px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" />
-                  <input type="number" min="0" step="0.01" required value={item.price || ""} onChange={(e) => updateItem(i, "price", Number(e.target.value))} className="px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Цена" />
-                  <button type="button" onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 p-1"><X className="w-4 h-4" /></button>
+                <div key={i} className="grid grid-cols-[2fr_1fr_70px_1fr_auto] gap-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 items-center">
+                  <input required value={item.product_name} onChange={(e) => updateItem(i, "product_name", e.target.value)} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Наименование" />
+                  <input value={item.article} onChange={(e) => updateItem(i, "article", e.target.value)} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Артикул" />
+                  <input type="number" min="1" required value={item.quantity} onChange={(e) => updateItem(i, "quantity", Number(e.target.value))} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" />
+                  <input type="number" min="0" step="0.01" required value={item.price || ""} onChange={(e) => updateItem(i, "price", Number(e.target.value))} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Цена" />
+                  <button type="button" onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 p-1 shrink-0"><X className="w-4 h-4" /></button>
                 </div>
               ))}
               <button type="button" onClick={addItem} className="text-sm text-brand-500 font-semibold mb-5 hover:text-brand-600">+ Добавить позицию</button>

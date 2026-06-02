@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1e1e2e; display:flex; justify-content:center; padding:40px; font-family:'Segoe UI',sans-serif; }
+  .window { background:#282a36; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.5); width:780px; overflow:hidden; }
+  .titlebar { background:#21222c; padding:12px 16px; display:flex; align-items:center; gap:8px; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .red{background:#ff5f56;} .yellow{background:#ffbd2e;} .green{background:#27c93f;}
+  .filename { color:#8a8d98; font-size:13px; margin-left:12px; font-family:'Consolas',monospace; }
+  pre { padding:20px 24px; margin:0; font-family:'Consolas','Courier New',monospace; font-size:13.5px; line-height:1.55; color:#f8f8f2; overflow-x:auto; }
+  .kw{color:#ff79c6;} .fn{color:#50fa7b;} .str{color:#f1fa8c;} .com{color:#6272a4;}
+  .num{color:#bd93f9;} .self{color:#ffb86c; font-style:italic;} .builtin{color:#8be9fd;} .dec{color:#bd93f9;}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+    <span class="filename">tasks.py</span>
+  </div>
+<pre><span class="dec">@celery_app.task</span>(name=<span class="str">"tasks.send_notification"</span>, bind=<span class="kw">True</span>, max_retries=<span class="num">3</span>)
+<span class="kw">def</span> <span class="fn">send_notification_task</span>(<span class="self">self</span>, return_request_id: <span class="builtin">int</span>, new_status: <span class="builtin">str</span>):
+    <span class="com">"""Сформировать уведомление покупателю о смене статуса."""</span>
+    template = STATUS_MESSAGES.<span class="fn">get</span>(new_status)
+    <span class="kw">if not</span> template:
+        <span class="kw">return</span> {<span class="str">"skipped"</span>: <span class="kw">True</span>}
+
+    session = <span class="fn">SyncSessionLocal</span>()
+    rr = session.<span class="fn">get</span>(ReturnRequest, return_request_id)
+
+    <span class="com"># выбор канала доставки по контактам покупателя</span>
+    contact, channel = <span class="str">""</span>, <span class="str">"email"</span>
+    <span class="kw">if</span> rr.client.phone:
+        contact, channel = rr.client.phone, <span class="str">"sms"</span>
+    <span class="kw">elif</span> rr.client.email:
+        contact, channel = rr.client.email, <span class="str">"email"</span>
+
+    <span class="com"># формирование сообщения по шаблону и фиксация в БД</span>
+    message = template.<span class="fn">format</span>(number=rr.number)
+    notification = <span class="fn">Notification</span>(
+        return_request_id=rr.id,
+        recipient_contact=contact,
+        channel=channel,
+        message=message,
+        is_sent=<span class="kw">True</span>,
+        sent_at=datetime.<span class="fn">now</span>(timezone.utc),
+    )
+    session.<span class="fn">add</span>(notification)
+    session.<span class="fn">commit</span>()
+    <span class="kw">return</span> {<span class="str">"sent"</span>: <span class="kw">True</span>, <span class="str">"channel"</span>: channel}</pre>
+</div>
+</body>
+</html>

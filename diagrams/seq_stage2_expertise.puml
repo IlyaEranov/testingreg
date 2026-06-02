@@ -7,7 +7,7 @@ skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam maxMessageSize 200
 
-title Рисунок 2.3 — Диаграмма последовательности:\nэкспертиза поставщика и принятие решения
+title Рисунок 2.6 — Диаграмма последовательности:\nэкспертиза поставщика и принятие решения
 
 actor "Покупатель" as customer
 actor "Менеджер" as manager
