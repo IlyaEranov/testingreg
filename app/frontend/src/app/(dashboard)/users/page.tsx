@@ -54,7 +54,8 @@ export default function UsersPage() {
       </div>
 
       <div className="bg-white rounded-xl3 border border-brand-100 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-brand-50">
               <th className="text-left px-5 py-3.5 font-bold text-brand-600">ID</th>
@@ -88,17 +89,18 @@ export default function UsersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-6 pt-12"
+        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-3 sm:p-6 pt-6 sm:pt-12 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
           <div className="bg-white rounded-[28px] w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between px-7 py-5 border-b border-brand-100 bg-brand-50 rounded-t-[28px]">
               <h2 className="text-lg font-bold text-brand-700">Новый пользователь</h2>
               <button onClick={() => setModal(null)} className="text-brand-300 hover:text-brand-500"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-7 grid grid-cols-2 gap-4">
+            <div className="p-5 sm:p-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <UInput label="Фамилия" value={modal.last_name} onChange={(v) => setModal({ ...modal, last_name: v })} />
               <UInput label="Имя" value={modal.first_name} onChange={(v) => setModal({ ...modal, first_name: v })} />
               <UInput label="Отчество" value={modal.patronymic} onChange={(v) => setModal({ ...modal, patronymic: v })} />

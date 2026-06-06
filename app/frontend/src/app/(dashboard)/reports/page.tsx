@@ -71,7 +71,7 @@ export default function ReportsPage() {
 
       {/* Stats */}
       {summary && (
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
             { label: "Всего заявок", value: summary.total, accent: "border-l-brand-500" },
             { label: "В работе", value: summary.active, accent: "border-l-amber-400" },
@@ -87,7 +87,7 @@ export default function ReportsPage() {
       )}
 
       {/* Charts */}
-      <div className="grid grid-cols-2 gap-5 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
         <div className="bg-white rounded-xl3 border border-brand-100 p-5">
           <h3 className="text-sm font-bold text-brand-600 mb-3">Динамика по месяцам</h3>
           <div className="h-[260px]"><canvas ref={barRef} /></div>
@@ -103,7 +103,8 @@ export default function ReportsPage() {
         <div className="px-5 py-4 border-b border-brand-100">
           <h3 className="text-sm font-bold text-brand-600">Статистика по поставщикам</h3>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[480px]">
           <thead><tr className="bg-brand-50">
             <th className="text-left px-5 py-3 font-bold text-brand-600">Поставщик</th>
             <th className="text-left px-5 py-3 font-bold text-brand-600">Экспертиз</th>
@@ -121,6 +122,7 @@ export default function ReportsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

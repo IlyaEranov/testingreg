@@ -118,7 +118,7 @@ export default function DirectoriesPage() {
 
       {/* Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-6 pt-16"
+        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-3 sm:p-6 pt-6 sm:pt-16 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
           <div className="bg-white rounded-[28px] w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between px-7 py-5 border-b border-brand-100 bg-brand-50 rounded-t-[28px]">
@@ -163,10 +163,12 @@ export default function DirectoriesPage() {
 function Table({ headers, children }: { headers: string[]; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl3 border border-brand-100 overflow-hidden">
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full text-sm min-w-[520px]">
         <thead><tr className="bg-brand-50">{headers.map((h, i) => <th key={i} className="text-left px-5 py-3 font-bold text-brand-600">{h}</th>)}</tr></thead>
         <tbody>{children}</tbody>
       </table>
+      </div>
     </div>
   );
 }

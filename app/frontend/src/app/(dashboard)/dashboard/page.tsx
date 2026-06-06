@@ -85,7 +85,8 @@ export default function DashboardPage() {
           <h3 className="text-sm font-bold text-brand-600">{data.queue_title}</h3>
           <span className="text-xs text-gray-400">{data.queue.length} заявок</span>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
           <thead>
             <tr className="bg-brand-50">
               <th className="text-left px-5 py-3 font-bold text-brand-600">№</th>
@@ -121,6 +122,7 @@ export default function DashboardPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -7,14 +7,14 @@ import { getNavForRole, canAccess, ROLE_LABELS } from "@/lib/roles";
 import { notifications } from "@/lib/api";
 import {
   LayoutDashboard, ArrowLeftRight, Warehouse, BarChart3,
-  BookOpen, Users, Bell, User, LogOut, type LucideIcon,
+  BookOpen, Users, Bell, User, LogOut, Menu, type LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard, ArrowLeftRight, Warehouse, BarChart3, BookOpen, Users, Bell, User,
 };
 
-function Sidebar() {
+function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useUser();
   const pathname = usePathname();
   const router = useRouter();
@@ -38,7 +38,7 @@ function Sidebar() {
   const initials = (user.last_name?.[0] || "") + (user.first_name?.[0] || "");
 
   return (
-    <nav className="w-[270px] bg-gradient-to-b from-brand-600 to-brand-700 text-brand-100 flex flex-col flex-shrink-0">
+    <nav className="w-[270px] h-full bg-gradient-to-b from-brand-600 to-brand-700 text-brand-100 flex flex-col flex-shrink-0">
       <div className="px-6 py-6 border-b border-brand-400/30">
         <h2 className="text-lg font-semibold text-white">Регион Сервис</h2>
         <p className="text-xs opacity-70 mt-1">АИС сопровождения возвратов</p>
@@ -57,6 +57,7 @@ function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onNavigate}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-medium transition-colors ${
                     active
                       ? "bg-brand-500 text-white shadow-md"
@@ -99,6 +100,13 @@ function Sidebar() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   const { loading, user } = useUser();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close the drawer on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   if (loading) {
     return (
@@ -111,8 +119,39 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-brand-50 p-6 lg:p-8">{children}</main>
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex h-full">
+        <Sidebar />
+      </div>
+
+      {/* Mobile drawer + overlay */}
+      <div className={`lg:hidden fixed inset-0 z-40 ${menuOpen ? "" : "pointer-events-none"}`}>
+        <div
+          className={`absolute inset-0 bg-black/40 transition-opacity ${menuOpen ? "opacity-100" : "opacity-0"}`}
+          onClick={() => setMenuOpen(false)}
+        />
+        <div
+          className={`absolute left-0 top-0 h-full transition-transform duration-300 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <Sidebar onNavigate={() => setMenuOpen(false)} />
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <header className="lg:hidden flex items-center gap-3 bg-brand-600 text-white px-4 py-3 flex-shrink-0">
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="p-1.5 rounded-lg hover:bg-brand-500/50 transition"
+            aria-label="Открыть меню"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <span className="font-semibold">Регион Сервис</span>
+        </header>
+
+        <main className="flex-1 overflow-y-auto bg-brand-50 p-4 sm:p-6 lg:p-8">{children}</main>
+      </div>
     </div>
   );
 }

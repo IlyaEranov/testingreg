@@ -255,7 +255,8 @@ function ReturnsInner() {
 
       {/* Table */}
       <div className="bg-white rounded-xl3 border border-brand-100 overflow-hidden shadow-sm">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-brand-50">
               <th className="text-left px-5 py-3.5 font-bold text-brand-600">№</th>
@@ -287,11 +288,12 @@ function ReturnsInner() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Detail modal */}
       {selected && (
-        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-6 pt-10 overflow-y-auto"
+        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-3 sm:p-6 pt-6 sm:pt-10 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) { setSelected(null); router.replace("/returns"); } }}>
           <div className="bg-white rounded-[28px] w-full max-w-3xl shadow-2xl">
             <div className="flex items-center justify-between px-7 py-5 border-b border-brand-100 bg-brand-50 rounded-t-[28px]">
@@ -316,7 +318,7 @@ function ReturnsInner() {
             <div className="p-7">
               {/* INFO */}
               {tab === "info" && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Клиент" value={selected.client_name} />
                   <Field label="Телефон" value={selected.client_phone || "—"} />
                   <Field label="Тип возврата" value={selected.return_type} />
@@ -490,15 +492,15 @@ function ReturnsInner() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-6 pt-10 overflow-y-auto"
+        <div className="fixed inset-0 bg-brand-700/50 backdrop-blur-sm z-50 flex items-start justify-center p-3 sm:p-6 pt-6 sm:pt-10 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) { setShowCreate(false); router.replace("/returns"); } }}>
           <div className="bg-white rounded-[28px] w-full max-w-2xl shadow-2xl">
             <div className="flex items-center justify-between px-7 py-5 border-b border-brand-100 bg-brand-50 rounded-t-[28px]">
               <h2 className="text-lg font-bold text-brand-700">Новая заявка на возврат</h2>
               <button onClick={() => { setShowCreate(false); router.replace("/returns"); }} className="text-brand-300 hover:text-brand-500 text-2xl">&times;</button>
             </div>
-            <form onSubmit={handleCreate} className="p-7">
-              <div className="grid grid-cols-2 gap-4 mb-5">
+            <form onSubmit={handleCreate} className="p-5 sm:p-7">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 <Input label="Клиент" required value={form.client_name} onChange={(v) => setForm({ ...form, client_name: v })} placeholder="ФИО / Организация" />
                 <Input label="Телефон" value={form.client_phone} onChange={(v) => setForm({ ...form, client_phone: v })} placeholder="+7 (999) 123-45-67" />
                 <div>
@@ -526,7 +528,7 @@ function ReturnsInner() {
 
               <h3 className="text-sm font-bold text-brand-600 mb-3">Товарные позиции</h3>
               {form.items.map((item: any, i: number) => (
-                <div key={i} className="grid grid-cols-[2fr_1fr_70px_1fr_auto] gap-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 items-center">
+                <div key={i} className="flex flex-col sm:grid sm:grid-cols-[2fr_1fr_70px_1fr_auto] gap-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 sm:items-center">
                   <input required value={item.product_name} onChange={(e) => updateItem(i, "product_name", e.target.value)} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Наименование" />
                   <input value={item.article} onChange={(e) => updateItem(i, "article", e.target.value)} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" placeholder="Артикул" />
                   <input type="number" min="1" required value={item.quantity} onChange={(e) => updateItem(i, "quantity", Number(e.target.value))} className="min-w-0 px-2 py-2 bg-white border border-brand-200 rounded-lg text-sm outline-none" />
