@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api import (
     auth, returns, warehouse, documents, users,
-    directories, reports, notifications, dashboard,
+    directories, reports, notifications, dashboard, settings,
 )
 
 api_router = APIRouter()
@@ -16,3 +16,4 @@ api_router.include_router(users.router, prefix="/users", tags=["Пользова
 api_router.include_router(directories.router, prefix="/directories", tags=["Справочники"])
 api_router.include_router(reports.router, prefix="/reports", tags=["Отчёты"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["Уведомления"])
+api_router.include_router(settings.router, prefix="/settings", tags=["Настройки"])

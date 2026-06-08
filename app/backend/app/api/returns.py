@@ -27,6 +27,7 @@ async def list_returns(
     date_from: str | None = None,
     date_to: str | None = None,
     client: str | None = None,
+    scope: str | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -41,6 +42,16 @@ async def list_returns(
             selectinload(ReturnRequest.warehouse),
         )
     )
+
+    # Ограничение видимости по роли:
+    #  - менеджер: по умолчанию свои заявки (scope=all — все);
+    #  - складской сотрудник: заявки на стадии складской проверки;
+    #  - руководитель/админ: все заявки.
+    role = current_user.role.name if current_user.role else ""
+    if role == "manager" and scope != "all":
+        query = query.where(ReturnRequest.manager_id == current_user.id)
+    elif role == "warehouse_staff":
+        query = query.where(ReturnRequest.status == "warehouse")
 
     if status:
         query = query.where(ReturnRequest.status == status)

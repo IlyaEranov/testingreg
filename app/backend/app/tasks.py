@@ -96,6 +96,17 @@ def sync_with_onec_task(self, return_request_id: int):
         warehouse_name = rr.warehouse.name if rr.warehouse else ""
         total = float(rr.total_amount or 0)
 
+        # Адрес и токен 1С берём из настроек (задаются администратором в интерфейсе),
+        # с откатом на значение по умолчанию из конфигурации
+        from app.models.setting import AppSetting
+        url_row = session.get(AppSetting, "onec_api_url")
+        token_row = session.get(AppSetting, "onec_api_token")
+        if url_row and url_row.value:
+            onec_service.base_url = url_row.value.rstrip("/")
+        onec_service.headers = {}
+        if token_row and token_row.value:
+            onec_service.headers["Authorization"] = f"Bearer {token_row.value}"
+
         # onec_service использует httpx.AsyncClient — выполняем в петле событий
         loop = asyncio.new_event_loop()
         try:

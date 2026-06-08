@@ -14,7 +14,7 @@ hide circle
 hide methods
 skinparam classAttributeFontColor #000000
 
-title Физическая модель базы данных
+title Схема базы данных
 
 ' ===================== СПРАВОЧНИКИ И ПОЛЬЗОВАТЕЛИ =====================
 
@@ -56,15 +56,6 @@ entity "return_reasons" as reasons {
   name:VARCHAR(255)
   description:VARCHAR(500)
   is_active:BOOL
-}
-
-entity "return_statuses" as statuses {
-  **PK** **id:SERIAL**
-  __
-  name:VARCHAR(100)
-  code:VARCHAR(50)
-  description:VARCHAR(500)
-  sort_order:INT
 }
 
 entity "suppliers" as suppliers {
@@ -169,6 +160,8 @@ entity "notifications" as notifications {
   **FK** return_request_id:INT
   recipient_type:VARCHAR(20)
   recipient_contact:VARCHAR(255)
+  **FK** recipient_user_id:INT
+  recipient_role:VARCHAR(50)
   channel:VARCHAR(20)
   message:TEXT
   is_sent:BOOL
@@ -178,24 +171,22 @@ entity "notifications" as notifications {
 
 ' ===================== СВЯЗИ (crow's foot) =====================
 
-' Справочники -> заявка (верхний ряд)
 roles ||--o{ users
 users ||--o{ requests
 clients ||--o{ requests
 reasons ||--o{ requests
 warehouses ||--o{ requests
 
-' Заявка -> зависимые таблицы (нижний ряд, порядок слева направо)
 requests ||--o{ exams
 requests ||--o{ history
 requests ||--o{ items
 requests ||--o{ documents
 requests ||--o{ notifications
 
-' Дополнительные связи
 suppliers ||--o{ exams
 users ||--o{ history
 items ||--o{ checks
 users ||--o{ checks
+users ||--o{ notifications
 
 @enduml

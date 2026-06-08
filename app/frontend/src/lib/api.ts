@@ -150,6 +150,13 @@ export const notifications = {
   forReturn: (returnId: number) => request<any[]>(`/notifications/return/${returnId}`),
 };
 
+// Settings (интеграция)
+export const settings = {
+  get: () => request<any>("/settings/"),
+  update: (data: any) =>
+    request<any>("/settings/", { method: "PUT", body: JSON.stringify(data) }),
+};
+
 // Reports
 export const reports = {
   summary: (params?: Record<string, string>) => {

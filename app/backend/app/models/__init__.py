@@ -7,11 +7,12 @@ from app.models.supplier_examination import SupplierExamination
 from app.models.document import Document
 from app.models.action_history import ActionHistory
 from app.models.notification import Notification
+from app.models.setting import AppSetting
 
 __all__ = [
     "User", "Role", "Client",
     "ReturnReason", "ReturnStatus", "Supplier", "Warehouse",
     "ReturnRequest", "ReturnItem",
     "WarehouseCheck", "SupplierExamination",
-    "Document", "ActionHistory", "Notification",
+    "Document", "ActionHistory", "Notification", "AppSetting",
 ]

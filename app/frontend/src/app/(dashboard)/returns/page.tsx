@@ -34,7 +34,7 @@ function ReturnsInner() {
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [tab, setTab] = useState("info");
-  const [filter, setFilter] = useState({ status: "", client: "" });
+  const [filter, setFilter] = useState({ status: "", client: "", scope: "mine" });
   const [notifs, setNotifs] = useState<any[]>([]);
 
   const [form, setForm] = useState<any>({
@@ -53,6 +53,7 @@ function ReturnsInner() {
       const params: Record<string, string> = {};
       if (filter.status) params.status = filter.status;
       if (filter.client) params.client = filter.client;
+      if (filter.scope === "all") params.scope = "all";
       setData(await api.list(params));
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -173,7 +174,7 @@ function ReturnsInner() {
   }
 
   function resetFilters() {
-    setFilter({ status: "", client: "" });
+    setFilter({ status: "", client: "", scope: "mine" });
   }
 
   const fmt = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
@@ -250,6 +251,18 @@ function ReturnsInner() {
           <Search className="w-4 h-4 text-brand-400" />
           <input type="text" placeholder="Поиск по клиенту..." value={filter.client} onChange={(e) => setFilter({ ...filter, client: e.target.value })} className="bg-transparent py-2 text-sm outline-none w-full" />
         </div>
+        {role === "manager" && (
+          <div className="flex items-center rounded-full border border-brand-200 overflow-hidden">
+            <button
+              onClick={() => setFilter({ ...filter, scope: "mine" })}
+              className={`px-4 py-2 text-sm font-semibold ${filter.scope === "mine" ? "bg-brand-500 text-white" : "bg-white text-brand-600"}`}
+            >Мои</button>
+            <button
+              onClick={() => setFilter({ ...filter, scope: "all" })}
+              className={`px-4 py-2 text-sm font-semibold ${filter.scope === "all" ? "bg-brand-500 text-white" : "bg-white text-brand-600"}`}
+            >Все</button>
+          </div>
+        )}
         <button onClick={resetFilters} className="px-4 py-2 bg-brand-100 text-brand-600 rounded-full text-sm font-semibold">Сбросить</button>
       </div>
 

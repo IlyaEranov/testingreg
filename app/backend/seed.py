@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.database import engine, async_session, Base
 from app.models import *  # noqa: F403
 from app.utils.security import get_password_hash
+from app.services.notification_service import notify_employees
 
 
 async def seed():
@@ -74,6 +75,14 @@ async def seed():
                 Warehouse(id=3, name="Склад брака", address="г. Краснодар, ул. Промышленная, 15, секция Б"),
             ]
             db.add_all(warehouses)
+
+        # ===== App settings (адрес тестовой 1С по умолчанию) =====
+        existing = await db.execute(select(AppSetting))
+        if not existing.scalars().first():
+            db.add_all([
+                AppSetting(key="onec_api_url", value="http://host.docker.internal:8081"),
+                AppSetting(key="onec_api_token", value=""),
+            ])
 
         # ===== Users =====
         existing = await db.execute(select(User))
@@ -244,6 +253,14 @@ async def seed_returns(db):
                       ("2025-05-17 09:00", "Возврат одобрен", 5, "waiting", "approved")]),
     ]
 
+    # Статус заявки → событие для демо-уведомлений сотрудникам
+    STATUS_EVENT = {
+        "created": "created", "warehouse": "warehouse", "waiting": "waiting",
+        "expertise": "expertise", "expertise_done": "expertise_done",
+        "approved": "approved", "rejected": "rejected",
+        "finance": "approved", "done": "done",
+    }
+
     for d in data:
         total = sum(Decimal(p) * q for _, _, q, _, p in d["items"])
         rr = ReturnRequest(
@@ -288,6 +305,11 @@ async def seed_returns(db):
                 return_request_id=rr.id, user_id=uid, action=action,
                 old_status=old_s, new_status=new_s, created_at=dt(hdate.replace(" ", "T")),
             ))
+
+        # Демо-уведомления сотрудникам по текущему этапу заявки
+        ev = STATUS_EVENT.get(d["status"])
+        if ev:
+            await notify_employees(db, rr, ev)
 
     # Examinations for expertise returns
     db.add(SupplierExamination(return_request_id=3, supplier_id=5,

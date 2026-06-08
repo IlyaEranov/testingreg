@@ -13,7 +13,12 @@ class Notification(Base):
         ForeignKey("return_requests.id", ondelete="CASCADE")
     )
     recipient_type: Mapped[str] = mapped_column(String(20))  # client / employee
-    recipient_contact: Mapped[str] = mapped_column(String(255))
+    recipient_contact: Mapped[str] = mapped_column(String(255), default="")
+    # Для уведомлений сотрудникам: адресат по конкретному пользователю или по роли
+    recipient_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    recipient_role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     channel: Mapped[str] = mapped_column(String(20))  # sms / email
     message: Mapped[str] = mapped_column(Text)
     is_sent: Mapped[bool] = mapped_column(Boolean, default=False)

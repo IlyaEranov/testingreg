@@ -7,11 +7,11 @@ import { getNavForRole, canAccess, ROLE_LABELS } from "@/lib/roles";
 import { notifications } from "@/lib/api";
 import {
   LayoutDashboard, ArrowLeftRight, Warehouse, BarChart3,
-  BookOpen, Users, Bell, User, LogOut, Menu, type LucideIcon,
+  BookOpen, Users, Bell, User, LogOut, Menu, Settings, type LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
-  LayoutDashboard, ArrowLeftRight, Warehouse, BarChart3, BookOpen, Users, Bell, User,
+  LayoutDashboard, ArrowLeftRight, Warehouse, BarChart3, BookOpen, Users, Bell, User, Settings,
 };
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {

@@ -29,15 +29,16 @@ const ALL_NAV: NavItem[] = [
   { href: "/directories", label: "Справочники", icon: "BookOpen", section: "Настройки" },
   { href: "/users", label: "Пользователи", icon: "Users", section: "Настройки" },
   { href: "/notifications", label: "Уведомления", icon: "Bell", section: "Основное" },
+  { href: "/settings", label: "Интеграция с 1С", icon: "Settings", section: "Настройки" },
   { href: "/profile", label: "Профиль", icon: "User", section: "Настройки" },
 ];
 
 // Which routes each role can access
 const ROLE_ROUTES: Record<Role, string[]> = {
-  admin: ["/dashboard", "/returns", "/warehouse", "/reports", "/directories", "/users", "/notifications", "/profile"],
+  admin: ["/dashboard", "/returns", "/warehouse", "/reports", "/directories", "/users", "/notifications", "/settings", "/profile"],
   manager: ["/dashboard", "/returns", "/reports", "/notifications", "/profile"],
   warehouse_staff: ["/dashboard", "/warehouse", "/returns", "/notifications", "/profile"],
-  director: ["/dashboard", "/returns", "/reports", "/notifications", "/profile"],
+  director: ["/dashboard", "/returns", "/reports", "/directories", "/users", "/notifications", "/profile"],
 };
 
 export function getNavForRole(role: string): NavItem[] {
@@ -69,5 +70,5 @@ export function canFinance(role: string): boolean {
 }
 
 export function canManageUsers(role: string): boolean {
-  return role === "admin";
+  return ["admin", "director"].includes(role);
 }

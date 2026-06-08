@@ -9,7 +9,7 @@ from app.models import (
 )
 from app.models.user import User
 from app.schemas.return_request import ReturnRequestCreate, WarehouseCheckCreate
-from app.services.notification_service import notify_client_on_status
+from app.services.notification_service import notify_client_on_status, notify_employees
 from app.services.document_service import generate_and_save_document
 
 import logging
@@ -136,6 +136,7 @@ async def create_return_request(
         action="Заявка создана",
         new_status="created",
     ))
+    await notify_employees(db, return_request, "created")
 
     await db.commit()
     await db.refresh(return_request)
@@ -206,6 +207,9 @@ async def transition_status(
             action="Сформировано уведомление об отказе",
             old_status=new_status, new_status=new_status,
         ))
+
+    # Внутрисистемное уведомление сотруднику(ам) по событию
+    await notify_employees(db, rr, new_status)
 
     await db.commit()
 
@@ -286,6 +290,7 @@ async def submit_warehouse_check(
         old_status="warehouse",
         new_status="waiting",
     ))
+    await notify_employees(db, rr, "waiting")
 
     await db.commit()
     await db.refresh(rr)
@@ -336,6 +341,8 @@ async def create_examination(
 
     # Notify client
     await notify_client_on_status(db, rr, "expertise")
+    # Notify employees (руководителю — товар передан на экспертизу)
+    await notify_employees(db, rr, "expertise")
 
     await db.commit()
     await db.refresh(exam)
@@ -377,6 +384,7 @@ async def submit_examination_result(
         new_status="expertise_done",
         details=details,
     ))
+    await notify_employees(db, rr, "expertise_done")
 
     await db.commit()
     await db.refresh(rr)

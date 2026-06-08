@@ -37,7 +37,7 @@ async def list_users(
 async def create_user(
     data: UserCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
+    current_user: User = Depends(require_roles("admin", "director")),
 ):
     # Check email unique
     existing = await db.execute(select(User).where(User.email == data.email))
@@ -76,7 +76,7 @@ async def update_user(
     user_id: int,
     data: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles("admin")),
+    current_user: User = Depends(require_roles("admin", "director")),
 ):
     result = await db.execute(
         select(User).options(selectinload(User.role)).where(User.id == user_id)

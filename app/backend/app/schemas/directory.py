@@ -71,6 +71,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    email: str | None = None
     last_name: str | None = None
     first_name: str | None = None
     patronymic: str | None = None

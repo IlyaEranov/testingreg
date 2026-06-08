@@ -1,0 +1,6 @@
+services:
+  onec-mock:
+    build: .
+    container_name: onec-mock
+    ports:
+      - "8081:8081"

@@ -38,6 +38,61 @@ STATUS_MESSAGES = {
 }
 
 
+# Событие заявки → (список адресатов, текст уведомления сотруднику).
+# Адресат: "manager" — ответственному менеджеру заявки;
+#          "role:<role>" — всем сотрудникам указанной роли.
+EMPLOYEE_EVENTS = {
+    "created": (["role:director"],
+                "Зарегистрирована новая заявка на возврат №{number}."),
+    "warehouse": (["role:warehouse_staff"],
+                  "Новая заявка №{number} поступила на складскую проверку."),
+    "waiting": (["manager", "role:director"],
+                "Заявка №{number} прошла складскую проверку и ожидает решения."),
+    "expertise": (["role:director"],
+                  "Заявка №{number} передана поставщику на экспертизу."),
+    "expertise_done": (["manager", "role:director"],
+                       "Экспертиза по заявке №{number} завершена, требуется решение."),
+    "approved": (["manager", "role:director"],
+                 "Возврат по заявке №{number} одобрен."),
+    "rejected": (["manager", "role:director"],
+                 "Возврат по заявке №{number} отклонён."),
+    "done": (["manager", "role:director"],
+             "Возврат по заявке №{number} завершён."),
+}
+
+
+async def notify_employees(db: AsyncSession, return_request, event: str):
+    """Создать внутрисистемные уведомления сотрудникам по событию заявки.
+
+    Одно событие может адресоваться нескольким получателям (например,
+    менеджеру заявки и всем руководителям).
+    """
+    cfg = EMPLOYEE_EVENTS.get(event)
+    if not cfg:
+        return None
+    targets, template = cfg
+    message = template.format(number=return_request.number)
+    for target in targets:
+        if target == "manager":
+            recipient_user_id, recipient_role = return_request.manager_id, None
+        elif target.startswith("role:"):
+            recipient_user_id, recipient_role = None, target.split(":", 1)[1]
+        else:
+            continue
+        db.add(Notification(
+            return_request_id=return_request.id,
+            recipient_type="employee",
+            recipient_contact="",
+            channel="system",
+            message=message,
+            is_sent=True,
+            sent_at=datetime.now(timezone.utc),
+            recipient_user_id=recipient_user_id,
+            recipient_role=recipient_role,
+        ))
+    await db.flush()
+
+
 async def notify_client_on_status(
     db: AsyncSession, return_request, new_status: str
 ):
