@@ -20,6 +20,7 @@ app = FastAPI(title="Тестовая 1С:Предприятие (эмулято
 # Хранилище принятых документов (в памяти)
 DOCS: list[dict] = []
 SMS: list[dict] = []
+RETURNS_BY_NUMBER: dict[str, dict] = {}  # для идемпотентности по номеру заявки
 _counter = itertools.count(1)
 
 ORG = {
@@ -64,8 +65,22 @@ def _resp(doc: dict) -> dict:
 
 async def _create_return(request: Request):
     p = await request.json()
+    number = p.get("number")
+    # Идемпотентность: повторный запрос по той же заявке не создаёт дубликат
+    if number and number in RETURNS_BY_NUMBER:
+        existing = RETURNS_BY_NUMBER[number]
+        return {
+            "success": True,
+            "documentType": "ReturnFromBuyer",
+            "documentNumber": existing["number"],
+            "date": existing["date"],
+            "message": "Документ по заявке уже существует — повтор проигнорирован (идемпотентность)",
+        }
     s = f'Контрагент: {p.get("client","")}; позиций: {len(p.get("items",[]))}; сумма: {p.get("totalAmount",0)} руб.'
-    return _resp(_store("return", "Возврат товаров от покупателя", p, s))
+    doc = _store("return", "Возврат товаров от покупателя", p, s)
+    if number:
+        RETURNS_BY_NUMBER[number] = doc
+    return _resp(doc)
 
 
 async def _write_off(request: Request):

@@ -100,6 +100,12 @@ def sync_with_onec_task(self, return_request_id: int):
         if not rr:
             return {"error": "Заявка не найдена"}
 
+        # Идемпотентность: если обмен по заявке уже выполнен — не дублируем документ
+        if rr.onec_synced:
+            logger.info(f"Заявка {rr.number}: обмен с 1С уже выполнен ранее, повтор пропущен")
+            return {"skipped": True, "reason": "уже синхронизировано",
+                    "document": rr.onec_document_number}
+
         items = [
             {"product_name": it.product_name, "article": it.article,
              "quantity": it.quantity, "price": it.price}
@@ -132,14 +138,29 @@ def sync_with_onec_task(self, return_request_id: int):
         finally:
             loop.close()
 
+        # Формируем запись истории с номерами созданных в 1С документов
+        doc_ok = isinstance(doc_result, dict) and doc_result.get("success")
+        if doc_ok:
+            doc_no = doc_result.get("documentNumber", "—")
+            stock_no = stock_result.get("documentNumber") if isinstance(stock_result, dict) else None
+            action = f"Данные переданы в 1С: создан документ возврата {doc_no}"
+            if stock_no:
+                action += f", корректировка остатков {stock_no}"
+            # фиксируем успешный обмен (идемпотентность)
+            rr.onec_synced = True
+            rr.onec_document_number = doc_no
+        else:
+            err = doc_result.get("error") if isinstance(doc_result, dict) else str(doc_result)
+            action = f"Ошибка обмена с 1С: {err}"
+
         session.add(ActionHistory(
             return_request_id=rr.id, user_id=None,
-            action="Обработчик очереди: данные переданы в 1С:Предприятие",
+            action=action,
             old_status=rr.status, new_status=rr.status,
         ))
         session.commit()
-        logger.info(f"Заявка {rr.number}: обмен с 1С выполнен")
-        return {"onec": True, "document": doc_result, "stock": stock_result}
+        logger.info(f"Заявка {rr.number}: {action}")
+        return {"onec": doc_ok, "document": doc_result, "stock": stock_result}
     except Exception as exc:
         session.rollback()
         logger.error(f"Ошибка обмена с 1С: {exc}")

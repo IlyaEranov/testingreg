@@ -19,6 +19,9 @@ class ReturnRequest(Base):
     warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
     comment: Mapped[str | None] = mapped_column(Text)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    # Признак выполненного обмена с 1С (для идемпотентности — не дублировать документ)
+    onec_synced: Mapped[bool] = mapped_column(default=False)
+    onec_document_number: Mapped[str | None] = mapped_column(String(50))
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
