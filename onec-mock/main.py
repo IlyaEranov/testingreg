@@ -19,6 +19,7 @@ app = FastAPI(title="Тестовая 1С:Предприятие (эмулято
 
 # Хранилище принятых документов (в памяти)
 DOCS: list[dict] = []
+SMS: list[dict] = []
 _counter = itertools.count(1)
 
 ORG = {
@@ -95,9 +96,27 @@ for path in ("/stock", "/api/stock"):
     app.add_api_route(path, _update_stock, methods=["PUT"])
 
 
+# ===================== ТЕСТОВЫЙ SMS-ШЛЮЗ =====================
+
+async def _receive_sms(request: Request):
+    p = await request.json()
+    SMS.insert(0, {
+        "id": len(SMS) + 1,
+        "phone": p.get("phone", ""),
+        "text": p.get("text", ""),
+        "sender": p.get("sender", ""),
+        "received_at": datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+    })
+    return {"success": True, "status": "OK", "message": "SMS принято тестовым шлюзом"}
+
+
+for path in ("/sms", "/api/sms"):
+    app.add_api_route(path, _receive_sms, methods=["POST"])
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "documents": len(DOCS)}
+    return {"status": "ok", "documents": len(DOCS), "sms": len(SMS)}
 
 
 # ===================== ВЕБ-ИНТЕРФЕЙС =====================
@@ -197,12 +216,36 @@ async def index():
           <tr><th>Номер</th><th>Документ</th><th>Дата</th><th>Сведения</th><th></th></tr>
           {rows}</table>"""
     return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
-<title>Тестовая 1С:Предприятие</title><meta http-equiv="refresh" content="10">
+<title>Тестовые внешние сервисы</title><meta http-equiv="refresh" content="10">
 <style>{_CSS}</style></head><body>
 <div class="page">
-  <div class="brand">1С:Предприятие <span>— тестовый сервис (эмулятор)</span></div>
-  <h1>Документы, принятые из АИС</h1>
+  <div class="brand">Тестовые внешние сервисы <span>— эмуляторы для АИС</span></div>
+  <div class="nav"><a href="/">Документы 1С ({len(DOCS)})</a> <a href="/sms">SMS ({len(SMS)})</a></div>
+  <h1>Документы, принятые из АИС (1С:Предприятие)</h1>
   <p class="muted">Организация: {ORG['name']}. Страница обновляется автоматически.</p>
+  {body}
+</div></body></html>"""
+
+
+@app.get("/sms", response_class=HTMLResponse)
+async def sms_list():
+    if not SMS:
+        body = "<p class='empty'>SMS ещё не поступали.</p>"
+    else:
+        rows = "".join(
+            f"<tr><td>{m['received_at']}</td><td>{m['sender']}</td>"
+            f"<td>{m['phone']}</td><td>{m['text']}</td></tr>" for m in SMS)
+        body = f"""<table class="items">
+          <tr><th>Время</th><th>Отправитель</th><th>Телефон</th><th>Текст</th></tr>
+          {rows}</table>"""
+    return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<title>Тестовый SMS-шлюз</title><meta http-equiv="refresh" content="10">
+<style>{_CSS}</style></head><body>
+<div class="page">
+  <div class="brand">Тестовые внешние сервисы <span>— эмуляторы для АИС</span></div>
+  <div class="nav"><a href="/">Документы 1С ({len(DOCS)})</a> <a href="/sms">SMS ({len(SMS)})</a></div>
+  <h1>SMS, принятые шлюзом</h1>
+  <p class="muted">Имитация SMS-провайдера. Страница обновляется автоматически.</p>
   {body}
 </div></body></html>"""
 
@@ -242,5 +285,7 @@ table.items th { background:#f0f0f0; }
 .sign .line { flex:1; border-top:1px solid #000; padding-top:4px; font-size:12px; color:#444; text-align:center; }
 .note { margin-top:26px; font-size:11px; color:#888; font-style:italic; }
 .empty { text-align:center; color:#888; padding:40px; }
+.nav { font-family:'Segoe UI',sans-serif; margin:8px 0 4px; }
+.nav a { display:inline-block; margin-right:16px; font-size:14px; font-weight:600; text-decoration:none; }
 a { color:#06c; } a.back { font-family:'Segoe UI',sans-serif; font-size:13px; display:inline-block; margin-bottom:12px; }
 """

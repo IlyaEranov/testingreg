@@ -11,12 +11,24 @@ from app.utils.deps import get_current_user, require_roles
 router = APIRouter()
 
 # Ключи настроек, доступных через интерфейс
-KEYS = ["onec_api_url", "onec_api_token"]
+KEYS = [
+    "onec_api_url", "onec_api_token",
+    "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from",
+    "sms_api_url", "sms_api_key", "sms_sender",
+]
 
 
 class SettingsPayload(BaseModel):
     onec_api_url: str | None = None
     onec_api_token: str | None = None
+    smtp_host: str | None = None
+    smtp_port: str | None = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    sms_api_url: str | None = None
+    sms_api_key: str | None = None
+    sms_sender: str | None = None
 
 
 async def _get_all(db: AsyncSession) -> dict:

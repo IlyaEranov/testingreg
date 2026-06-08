@@ -48,19 +48,32 @@ def send_notification_task(self, return_request_id: int, new_status: str):
                 channel = "email"
 
         message = template.format(number=rr.number)
+
+        # Реальная отправка через настроенный канал (SMTP / SMS-шлюз).
+        # Если канал не настроен — статус "simulated" (прототип работает без внешних сервисов).
+        from sqlalchemy import select
+        from app.models.setting import AppSetting
+        from app.services.sender import send_email, send_sms
+        cfg = {s.key: s.value for s in session.execute(select(AppSetting)).scalars().all()}
+        if channel == "sms":
+            status = send_sms(cfg, contact, message)
+        else:
+            status = send_email(cfg, contact, f"Уведомление по заявке {rr.number}", message)
+        sent = status in ("sent", "simulated")
+
         notification = Notification(
             return_request_id=rr.id,
             recipient_type="client",
             recipient_contact=contact,
             channel=channel,
             message=message,
-            is_sent=True,
-            sent_at=datetime.now(timezone.utc),
+            is_sent=sent,
+            sent_at=datetime.now(timezone.utc) if sent else None,
         )
         session.add(notification)
         session.commit()
-        logger.info(f"Уведомление по заявке {rr.number} отправлено ({channel})")
-        return {"sent": True, "channel": channel, "contact": contact}
+        logger.info(f"Уведомление по заявке {rr.number}: канал={channel}, статус={status}")
+        return {"channel": channel, "status": status, "contact": contact}
     except Exception as exc:
         session.rollback()
         logger.error(f"Ошибка отправки уведомления: {exc}")

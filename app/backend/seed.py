@@ -76,12 +76,22 @@ async def seed():
             ]
             db.add_all(warehouses)
 
-        # ===== App settings (адрес тестовой 1С по умолчанию) =====
+        # ===== App settings (адреса тестовых внешних сервисов по умолчанию) =====
         existing = await db.execute(select(AppSetting))
         if not existing.scalars().first():
             db.add_all([
                 AppSetting(key="onec_api_url", value="http://host.docker.internal:8081"),
                 AppSetting(key="onec_api_token", value=""),
+                # Email — тестовый сервер Mailpit (SMTP 1025, веб http://localhost:8025)
+                AppSetting(key="smtp_host", value="host.docker.internal"),
+                AppSetting(key="smtp_port", value="1025"),
+                AppSetting(key="smtp_user", value=""),
+                AppSetting(key="smtp_password", value=""),
+                AppSetting(key="smtp_from", value="no-reply@region-service.ru"),
+                # SMS — тестовый приёмник в onec-mock
+                AppSetting(key="sms_api_url", value="http://host.docker.internal:8081/sms"),
+                AppSetting(key="sms_api_key", value=""),
+                AppSetting(key="sms_sender", value="RegionService"),
             ])
 
         # ===== Users =====

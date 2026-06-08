@@ -4,3 +4,11 @@ services:
     container_name: onec-mock
     ports:
       - "8081:8081"
+
+  # Тестовый почтовый сервер: ловит email и показывает их в веб-интерфейсе
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "1025:1025"   # SMTP (для отправки из АИС)
+      - "8025:8025"   # веб-интерфейс просмотра писем
