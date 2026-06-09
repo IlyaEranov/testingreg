@@ -27,3 +27,5 @@ diagrams/plantuml.jar
 # OS
 .DS_Store
 Thumbs.db
+
+.claude
