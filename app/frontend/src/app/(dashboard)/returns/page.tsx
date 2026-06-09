@@ -3,22 +3,34 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { returns as api, directories, documents as docApi, notifications as notifApi } from "@/lib/api";
 import { useUser } from "@/lib/UserContext";
-import { canCreateReturn, canDecide, canFinance } from "@/lib/roles";
+import { canCreateReturn, canDecide, canHandleClaim } from "@/lib/roles";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { Plus, Search, Filter, X, Download, FileText, Bell } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
+// Документы, которые формирует АИС (можно сформировать вручную)
 const DOC_TYPES: Record<string, string> = {
-  application: "Заявление на возврат товара",
+  claim_letter: "Претензионное письмо заводу",
   route_sheet: "Маршрутный лист",
-  inspection_act: "Акт осмотра товара",
-  transfer_act: "Акт передачи товара поставщику",
-  acceptance_act: "Акт приёмки товара от поставщика",
-  return_act: "Акт возврата товара покупателю",
-  refund_act: "Акт возврата денежных средств",
+  inspection_act: "Акт осмотра / сверки товара",
   rejection_notice: "Уведомление об отказе в возврате",
-  write_off_act: "Акт списания товара",
+};
+
+// Учётные документы, подтянутые из 1С (только просмотр)
+const ONEC_DOC_TYPES: Record<string, string> = {
+  write_off: "Акт списания товара (1С)",
+  correction: "Корректировка / возврат в продажу (1С)",
+  reconciliation_act: "Акт сверки (1С)",
+};
+
+const ALL_DOC_LABELS: Record<string, string> = { ...DOC_TYPES, ...ONEC_DOC_TYPES };
+
+// Заключение завода
+const CONCLUSION_LABELS: Record<string, string> = {
+  defect_confirmed: "Заводской брак подтверждён",
+  misuse: "Нарушение условий эксплуатации",
+  transport_damage: "Транспортное повреждение",
 };
 
 function ReturnsInner() {
@@ -38,12 +50,12 @@ function ReturnsInner() {
   const [notifs, setNotifs] = useState<any[]>([]);
 
   const [form, setForm] = useState<any>({
-    client_name: "", client_phone: "", return_type: "Надлежащее качество",
+    client_name: "", client_phone: "", return_type: "Ненадлежащее качество", kind: "defect",
     reason_id: 0, warehouse_id: 0, comment: "",
     items: [{ product_name: "", article: "", quantity: 1, unit: "шт.", price: 0 }],
   });
 
-  // Examination form
+  // Форма претензии заводу
   const [examSupplier, setExamSupplier] = useState(0);
   const [examDetails, setExamDetails] = useState("");
 
@@ -102,20 +114,28 @@ function ReturnsInner() {
     } catch (err: any) { alert(err.message); }
   }
 
-  async function handleSendToExamination() {
-    if (!selected || !examSupplier) { alert("Выберите поставщика"); return; }
+  async function handleSendClaim() {
+    if (!selected || !examSupplier) { alert("Выберите завод-изготовитель"); return; }
     try {
-      await api.sendToExamination(selected.id, examSupplier, examDetails);
+      await api.sendClaim(selected.id, examSupplier, examDetails);
       setExamSupplier(0); setExamDetails("");
       await refreshSelected(selected.id);
     } catch (err: any) { alert(err.message); }
   }
 
-  async function handleExamResult(conclusion: string) {
+  async function handleFactoryResult(conclusion: string) {
     if (!selected) return;
     try {
-      await api.submitExamResult(selected.id, conclusion, examDetails);
+      await api.submitClaimResult(selected.id, conclusion, examDetails);
       setExamDetails("");
+      await refreshSelected(selected.id);
+    } catch (err: any) { alert(err.message); }
+  }
+
+  async function handleFinalize(outcome: string) {
+    if (!selected) return;
+    try {
+      await api.changeStatus(selected.id, "done", undefined, outcome);
       await refreshSelected(selected.id);
     } catch (err: any) { alert(err.message); }
   }
@@ -180,22 +200,32 @@ function ReturnsInner() {
   const fmt = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
   const role = user?.role || "";
 
-  // Determine available actions based on status + role
+  // Доступные действия по статусу и роли (новый процесс)
   function renderActions(r: any) {
     const actions: React.ReactNode[] = [];
-    if (r.status === "created" && (role === "manager" || role === "admin")) {
-      actions.push(<button key="wh" onClick={() => handleStatusChange(r.id, "warehouse")} className="btn-primary">Передать на склад</button>);
+    const isMgr = role === "manager" || role === "admin";
+    // Проверка условий менеджером
+    if (r.status === "created" && isMgr) {
+      actions.push(<button key="cd" onClick={() => handleStatusChange(r.id, "client_data")} className="btn-primary">Условия соблюдены — запросить данные</button>);
+      actions.push(<button key="rj0" onClick={() => handleStatusChange(r.id, "rejected")} className="btn-red">Отклонить (условия)</button>);
     }
-    if (r.status === "waiting" && canDecide(role)) {
-      actions.push(<button key="ap" onClick={() => handleStatusChange(r.id, "approved")} className="btn-green">Одобрить возврат</button>);
-      actions.push(<button key="rj" onClick={() => handleStatusChange(r.id, "rejected")} className="btn-red">Отклонить</button>);
+    // Ветка Б (надлежащее качество) — без завода, сразу в логистику
+    if (r.status === "client_data" && r.kind === "quality" && (role === "claims" || isMgr)) {
+      actions.push(<button key="tr" onClick={() => handleStatusChange(r.id, "in_transit")} className="btn-primary">Передать в логистику</button>);
     }
-    if (r.status === "expertise_done" && canDecide(role)) {
-      actions.push(<button key="ap2" onClick={() => handleStatusChange(r.id, "approved")} className="btn-green">Одобрить возврат</button>);
-      actions.push(<button key="rj2" onClick={() => handleStatusChange(r.id, "rejected")} className="btn-red">Отклонить</button>);
+    // После заключения завода — решение о маршруте
+    if (r.status === "factory_done") {
+      if (role === "claims" || isMgr) {
+        actions.push(<button key="tr2" onClick={() => handleStatusChange(r.id, "in_transit")} className="btn-green">Брак подтверждён — в логистику</button>);
+      }
+      if (canDecide(role)) {
+        actions.push(<button key="rj2" onClick={() => handleStatusChange(r.id, "rejected")} className="btn-red">Отклонить (эксплуатация)</button>);
+      }
     }
-    if (r.status === "finance" && canFinance(role)) {
-      actions.push(<button key="fin" onClick={() => handleStatusChange(r.id, "done")} className="btn-primary">Подтвердить возврат средств (1С)</button>);
+    // Решение по итогу (товар принят и сверён)
+    if (r.status === "received" && isMgr) {
+      actions.push(<button key="wo" onClick={() => handleFinalize("write_off")} className="btn-red">Списание (брак)</button>);
+      actions.push(<button key="co" onClick={() => handleFinalize("correction")} className="btn-green">Корректировка / возврат в продажу</button>);
     }
     return actions;
   }
@@ -203,8 +233,8 @@ function ReturnsInner() {
   const TABS = [
     { key: "info", label: "Информация" },
     { key: "items", label: "Товары" },
-    { key: "check", label: "Проверка" },
-    { key: "expertise", label: "Экспертиза" },
+    { key: "check", label: "Приёмка" },
+    { key: "expertise", label: "Завод / претензия" },
     { key: "docs", label: "Документы" },
     { key: "notifs", label: "Уведомления" },
     { key: "history", label: "История" },
@@ -237,13 +267,13 @@ function ReturnsInner() {
           <select value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })} className="bg-transparent py-2 text-sm outline-none">
             <option value="">Все статусы</option>
             <option value="created">Создана</option>
-            <option value="warehouse">На проверке</option>
-            <option value="waiting">Ожидает решения</option>
-            <option value="expertise">На экспертизе</option>
-            <option value="expertise_done">Экспертиза завершена</option>
-            <option value="approved">Одобрена</option>
+            <option value="client_data">Ожидает данных покупателя</option>
+            <option value="claim_factory">Претензия отправлена заводу</option>
+            <option value="factory_review">На рассмотрении завода</option>
+            <option value="factory_done">Заключение получено</option>
+            <option value="in_transit">Транспортировка на склад</option>
+            <option value="received">Принят и сверён</option>
             <option value="rejected">Отклонена</option>
-            <option value="finance">Ожидает фин.</option>
             <option value="done">Завершена</option>
           </select>
         </div>
@@ -336,6 +366,7 @@ function ReturnsInner() {
                   <Field label="Телефон" value={selected.client_phone || "—"} />
                   <Field label="Тип возврата" value={selected.return_type} />
                   <Field label="Причина" value={selected.reason_name} />
+                  {selected.outcome && <Field label="Итог" value={selected.outcome === "write_off" ? "Списание" : "Корректировка / возврат в продажу"} />}
                   <Field label="Менеджер" value={selected.manager_name} />
                   <Field label="Склад" value={selected.warehouse_name} />
                   <Field label="Дата создания" value={selected.created_at?.slice(0, 10)} />
@@ -380,47 +411,47 @@ function ReturnsInner() {
                       </div>
                     ))}
                   </div>
-                ) : <Empty text="Складская проверка ещё не проведена" />
+                ) : <Empty text="Приёмка и сверка ещё не проведена" />
               )}
 
-              {/* EXPERTISE */}
+              {/* ЗАВОД / ПРЕТЕНЗИЯ */}
               {tab === "expertise" && (
                 <div>
-                  {selected.examination ? (
+                  {selected.kind === "quality" ? (
+                    <Empty text="Возврат надлежащего качества — претензия заводу не оформляется" />
+                  ) : selected.examination ? (
                     <div className="bg-brand-50 rounded-2xl p-5 border border-brand-100 mb-4">
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        <Field label="Поставщик" value={selected.examination.supplier_name} />
-                        <Field label="Дата передачи" value={selected.examination.transfer_date?.slice(0, 10) || "—"} />
-                        <Field label="Дата результата" value={selected.examination.result_date?.slice(0, 10) || "— (ожидается)"} />
-                        <Field label="Заключение" value={
-                          selected.examination.conclusion === "defect_confirmed" ? "Заводской брак подтверждён" :
-                          selected.examination.conclusion === "defect_not_confirmed" ? "Брак не подтверждён" : "— (ожидается)"
-                        } />
+                        <Field label="Завод-изготовитель" value={selected.examination.supplier_name} />
+                        <Field label="Дата претензии" value={selected.examination.transfer_date?.slice(0, 10) || "—"} />
+                        <Field label="Дата заключения" value={selected.examination.result_date?.slice(0, 10) || "— (ожидается)"} />
+                        <Field label="Заключение" value={CONCLUSION_LABELS[selected.examination.conclusion] || "— (ожидается)"} />
                         {selected.examination.details && <div className="col-span-2"><Field label="Детали" value={selected.examination.details} /></div>}
                       </div>
                     </div>
-                  ) : selected.status === "waiting" && canDecide(role) ? (
+                  ) : selected.status === "client_data" && canHandleClaim(role) ? (
                     <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100">
-                      <h4 className="font-semibold text-brand-700 mb-3">Передать товар поставщику на экспертизу</h4>
+                      <h4 className="font-semibold text-brand-700 mb-3">Направить претензию заводу-изготовителю</h4>
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <select value={examSupplier} onChange={(e) => setExamSupplier(Number(e.target.value))} className="px-3 py-2 bg-white border border-brand-200 rounded-xl text-sm outline-none">
-                          <option value={0}>Выберите поставщика...</option>
+                          <option value={0}>Выберите завод...</option>
                           {suppliers.filter((s) => s.is_active).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
-                        <input value={examDetails} onChange={(e) => setExamDetails(e.target.value)} placeholder="Комментарий" className="px-3 py-2 bg-white border border-brand-200 rounded-xl text-sm outline-none" />
+                        <input value={examDetails} onChange={(e) => setExamDetails(e.target.value)} placeholder="Описание дефекта" className="px-3 py-2 bg-white border border-brand-200 rounded-xl text-sm outline-none" />
                       </div>
-                      <button onClick={handleSendToExamination} className="btn-primary">Передать на экспертизу</button>
+                      <button onClick={handleSendClaim} className="btn-primary">Направить претензию</button>
                     </div>
-                  ) : <Empty text="Экспертиза не требуется или недоступна на текущем этапе" />}
+                  ) : <Empty text="Претензия ещё не оформлена или недоступна на текущем этапе" />}
 
-                  {/* Submit result form */}
-                  {selected.status === "expertise" && canDecide(role) && (
+                  {/* Внесение заключения завода */}
+                  {(selected.status === "claim_factory" || selected.status === "factory_review") && canHandleClaim(role) && (
                     <div className="bg-pink-50 rounded-2xl p-5 border border-pink-100 mt-4">
-                      <h4 className="font-semibold text-brand-700 mb-3">Внести результат экспертизы</h4>
-                      <textarea value={examDetails} onChange={(e) => setExamDetails(e.target.value)} placeholder="Заключение поставщика..." rows={2} className="w-full px-3 py-2 bg-white border border-brand-200 rounded-xl text-sm outline-none mb-3 resize-none" />
-                      <div className="flex gap-2">
-                        <button onClick={() => handleExamResult("defect_confirmed")} className="btn-green">Брак подтверждён</button>
-                        <button onClick={() => handleExamResult("defect_not_confirmed")} className="btn-red">Брак не подтверждён</button>
+                      <h4 className="font-semibold text-brand-700 mb-3">Внести заключение завода</h4>
+                      <textarea value={examDetails} onChange={(e) => setExamDetails(e.target.value)} placeholder="Заключение завода..." rows={2} className="w-full px-3 py-2 bg-white border border-brand-200 rounded-xl text-sm outline-none mb-3 resize-none" />
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => handleFactoryResult("defect_confirmed")} className="btn-green">Брак подтверждён</button>
+                        <button onClick={() => handleFactoryResult("misuse")} className="btn-red">Нарушение эксплуатации</button>
+                        <button onClick={() => handleFactoryResult("transport_damage")} className="btn-primary">Транспортное повреждение</button>
                       </div>
                     </div>
                   )}
@@ -432,18 +463,25 @@ function ReturnsInner() {
                 <div>
                   {selected.documents?.length ? (
                     <div className="space-y-2 mb-5">
-                      {selected.documents.map((d: any) => (
+                      {selected.documents.map((d: any) => {
+                        const fromOnec = d.document_type in ONEC_DOC_TYPES;
+                        return (
                         <div key={d.id} className="flex items-center gap-3 bg-brand-50 rounded-xl p-3 border border-brand-100">
                           <div className="w-9 h-9 bg-brand-100 rounded-lg flex items-center justify-center"><FileText className="w-4 h-4 text-brand-500" /></div>
                           <div className="flex-1">
-                            <div className="text-sm font-semibold text-brand-700">{DOC_TYPES[d.document_type] || d.document_type}</div>
-                            <div className="text-xs text-gray-400">{d.created_at?.slice(0, 10)} • .docx</div>
+                            <div className="text-sm font-semibold text-brand-700">{ALL_DOC_LABELS[d.document_type] || d.document_type}</div>
+                            <div className="text-xs text-gray-400">{d.created_at?.slice(0, 10)} • {fromOnec ? "из 1С" : ".docx"}</div>
                           </div>
-                          <button onClick={() => downloadDoc(d.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-100 text-brand-600 rounded-lg text-xs font-semibold hover:bg-brand-200 transition">
-                            <Download className="w-3.5 h-3.5" /> Скачать
-                          </button>
+                          {fromOnec ? (
+                            <span className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold">1С</span>
+                          ) : (
+                            <button onClick={() => downloadDoc(d.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-100 text-brand-600 rounded-lg text-xs font-semibold hover:bg-brand-200 transition">
+                              <Download className="w-3.5 h-3.5" /> Скачать
+                            </button>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : <Empty text="Документы пока не сформированы" />}
 
@@ -517,9 +555,13 @@ function ReturnsInner() {
                 <Input label="Клиент" required value={form.client_name} onChange={(v) => setForm({ ...form, client_name: v })} placeholder="ФИО / Организация" />
                 <Input label="Телефон" value={form.client_phone} onChange={(v) => setForm({ ...form, client_phone: v })} placeholder="+7 (999) 123-45-67" />
                 <div>
-                  <label className="block text-xs font-semibold text-brand-600 mb-1">Тип возврата</label>
-                  <select value={form.return_type} onChange={(e) => setForm({ ...form, return_type: e.target.value })} className="w-full px-3 py-2.5 bg-brand-50 border border-brand-200 rounded-xl text-sm outline-none">
-                    <option>Надлежащее качество</option><option>Ненадлежащее качество</option><option>Производственный брак</option>
+                  <label className="block text-xs font-semibold text-brand-600 mb-1">Ветка возврата</label>
+                  <select value={form.kind} onChange={(e) => {
+                    const kind = e.target.value;
+                    setForm({ ...form, kind, return_type: kind === "defect" ? "Ненадлежащее качество" : "Надлежащее качество" });
+                  }} className="w-full px-3 py-2.5 bg-brand-50 border border-brand-200 rounded-xl text-sm outline-none">
+                    <option value="defect">Претензия по качеству (брак) — через завод</option>
+                    <option value="quality">Надлежащее качество (неактуальный заказ)</option>
                   </select>
                 </div>
                 <div>

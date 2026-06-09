@@ -101,10 +101,27 @@ async def _update_stock(request: Request):
     return _resp(_store("stock", "Корректировка складских остатков", p, s))
 
 
+async def _correction(request: Request):
+    p = await request.json()
+    s = (f'По возврату {p.get("returnNumber","")}; склад: {p.get("warehouse","")}; '
+         f'позиций: {len(p.get("items",[]))} (возврат в продажу)')
+    return _resp(_store("correction", "Корректировка реализации (возврат в продажу)", p, s))
+
+
+async def _reconciliation(request: Request):
+    p = await request.json()
+    s = f'Контрагент: {p.get("client","")}; по возврату {p.get("returnNumber","")}'
+    return _resp(_store("recon", "Акт сверки взаимных расчётов", p, s))
+
+
 for path in ("/returns", "/api/returns"):
     app.add_api_route(path, _create_return, methods=["POST"])
 for path in ("/write-off", "/api/write-off"):
     app.add_api_route(path, _write_off, methods=["POST"])
+for path in ("/correction", "/api/correction"):
+    app.add_api_route(path, _correction, methods=["POST"])
+for path in ("/reconciliation-act", "/api/reconciliation-act"):
+    app.add_api_route(path, _reconciliation, methods=["POST"])
 for path in ("/refund", "/api/refund"):
     app.add_api_route(path, _refund, methods=["POST"])
 for path in ("/stock", "/api/stock"):
@@ -192,6 +209,21 @@ def _render_doc(doc: dict) -> str:
             f"<td>{it.get('operation','')}</td></tr>" for it in items)
         extra = (f"<p><b>Склад:</b> {wh}</p>"
                  f"<table class='items'><tr><th>Артикул</th><th>Кол-во</th><th>Операция</th></tr>{srows}</table>")
+        items_block = ""
+    elif doc["kind"] == "correction":
+        wh = p.get("warehouse", "")
+        srows = "".join(
+            f"<tr><td>{it.get('article','')}</td><td>{it.get('productName','')}</td>"
+            f"<td class='c'>{it.get('quantity','')}</td><td>{it.get('operation','')}</td></tr>"
+            for it in items)
+        extra = (f"<p><b>Основание:</b> возврат № {p.get('returnNumber','')}</p>"
+                 f"<p><b>Склад:</b> {wh}; товар возвращается в продажу</p>"
+                 f"<table class='items'><tr><th>Артикул</th><th>Товар</th><th>Кол-во</th><th>Операция</th></tr>{srows}</table>")
+        items_block = ""
+    elif doc["kind"] == "recon":
+        extra = (f"<p><b>Контрагент:</b> {p.get('client','')}</p>"
+                 f"<p><b>Основание:</b> возврат № {p.get('returnNumber','')}</p>"
+                 f"<p>Акт сверки взаимных расчётов сформирован в 1С и направляется покупателю.</p>")
         items_block = ""
 
     return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">

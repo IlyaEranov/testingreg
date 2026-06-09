@@ -51,8 +51,8 @@ export default function WarehousePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-brand-700 mb-2">Складская проверка</h1>
-      <p className="text-sm text-gray-500 mb-6">Заявки, ожидающие проверки товара на складе</p>
+      <h1 className="text-2xl font-bold text-brand-700 mb-2">Приёмка и сверка</h1>
+      <p className="text-sm text-gray-500 mb-6">Заявки, доставленные на склад и ожидающие приёмки и сверки с заявкой покупателя</p>
 
       <div className="bg-white rounded-xl3 border border-brand-100 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -70,7 +70,7 @@ export default function WarehousePage() {
             {loading ? (
               <tr><td colSpan={5} className="text-center py-10 text-brand-300">Загрузка...</td></tr>
             ) : pending.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-10 text-brand-300">Нет заявок на проверку</td></tr>
+              <tr><td colSpan={5} className="text-center py-10 text-brand-300">Нет заявок на приёмку</td></tr>
             ) : (
               pending.map((r) => (
                 <tr key={r.id} className="border-t border-brand-50 hover:bg-brand-50/50">
@@ -83,7 +83,7 @@ export default function WarehousePage() {
                       onClick={() => startCheck(r.id)}
                       className="px-4 py-1.5 bg-brand-500 text-white rounded-xl text-xs font-semibold hover:bg-brand-600 transition"
                     >
-                      Провести проверку
+                      Принять и сверить
                     </button>
                   </td>
                 </tr>
@@ -100,7 +100,7 @@ export default function WarehousePage() {
           onClick={(e) => { if (e.target === e.currentTarget) { setCheckingId(null); setDetail(null); } }}>
           <div className="bg-white rounded-[28px] w-full max-w-2xl shadow-2xl">
             <div className="flex items-center justify-between px-7 py-5 border-b border-brand-100 bg-brand-50 rounded-t-[28px]">
-              <h2 className="text-lg font-bold text-brand-700">Складская проверка — {detail.number}</h2>
+              <h2 className="text-lg font-bold text-brand-700">Приёмка и сверка — {detail.number}</h2>
               <button onClick={() => { setCheckingId(null); setDetail(null); }} className="text-brand-300 hover:text-brand-500 text-2xl">&times;</button>
             </div>
             <form onSubmit={submitCheck} className="p-7">

@@ -75,18 +75,20 @@ export const returns = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  changeStatus: (id: number, newStatus: string, comment?: string) =>
+  changeStatus: (id: number, newStatus: string, comment?: string, outcome?: string) =>
     request<any>(`/returns/${id}/status`, {
       method: "POST",
-      body: JSON.stringify({ new_status: newStatus, comment }),
+      body: JSON.stringify({ new_status: newStatus, comment, outcome }),
     }),
-  sendToExamination: (id: number, supplierId: number, details?: string) =>
-    request<any>(`/returns/${id}/examination`, {
+  // Направить претензию заводу-изготовителю
+  sendClaim: (id: number, supplierId: number, details?: string) =>
+    request<any>(`/returns/${id}/claim`, {
       method: "POST",
       body: JSON.stringify({ supplier_id: supplierId, details }),
     }),
-  submitExamResult: (id: number, conclusion: string, details?: string) =>
-    request<any>(`/returns/${id}/examination/result`, {
+  // Внести заключение завода: defect_confirmed | misuse | transport_damage
+  submitClaimResult: (id: number, conclusion: string, details?: string) =>
+    request<any>(`/returns/${id}/claim/result`, {
       method: "POST",
       body: JSON.stringify({ conclusion, details }),
     }),
