@@ -17,8 +17,9 @@ router = APIRouter()
 ROLE_LABELS = {
     "admin": "Администратор",
     "manager": "Менеджер",
-    "warehouse_staff": "Складской сотрудник",
+    "claims": "Сотрудник претензионного отдела",
     "director": "Руководитель",
+    "logistics": "Логистика",
 }
 
 

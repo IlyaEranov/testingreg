@@ -113,7 +113,7 @@ def sync_with_onec_task(self, return_request_id: int):
         ]
         client_name = rr.client.name if rr.client else ""
         warehouse_name = rr.warehouse.name if rr.warehouse else ""
-        total = float(rr.total_amount or 0)
+        reason = rr.reason.name if rr.reason else ""
 
         # Адрес и токен 1С берём из настроек (задаются администратором в интерфейсе),
         # с откатом на значение по умолчанию из конфигурации
@@ -126,31 +126,47 @@ def sync_with_onec_task(self, return_request_id: int):
         if token_row and token_row.value:
             onec_service.headers["Authorization"] = f"Bearer {token_row.value}"
 
-        # onec_service использует httpx.AsyncClient — выполняем в петле событий
+        # Итог обработки определяет операцию в 1С:
+        #   write_off  — списание (брак),
+        #   correction — корректировка / возврат товара в продажу.
+        from app.services.document_service import register_onec_document
         loop = asyncio.new_event_loop()
         try:
-            doc_result = loop.run_until_complete(
-                onec_service.create_return_document(rr.number, client_name, items, total)
-            )
-            stock_result = loop.run_until_complete(
-                onec_service.update_stock(items, warehouse_name)
+            if rr.outcome == "write_off":
+                op_result = loop.run_until_complete(
+                    onec_service.create_write_off(rr.number, items, reason)
+                )
+                op_type, op_label = "write_off", "списания"
+            else:
+                op_result = loop.run_until_complete(
+                    onec_service.create_correction(rr.number, items, warehouse_name)
+                )
+                op_type, op_label = "correction", "корректировки"
+            # Акт сверки запрашивается из 1С и подтягивается в АИС
+            act_result = loop.run_until_complete(
+                onec_service.get_reconciliation_act(rr.number, client_name)
             )
         finally:
             loop.close()
 
-        # Формируем запись истории с номерами созданных в 1С документов
-        doc_ok = isinstance(doc_result, dict) and doc_result.get("success")
-        if doc_ok:
-            doc_no = doc_result.get("documentNumber", "—")
-            stock_no = stock_result.get("documentNumber") if isinstance(stock_result, dict) else None
-            action = f"Данные переданы в 1С: создан документ возврата {doc_no}"
-            if stock_no:
-                action += f", корректировка остатков {stock_no}"
-            # фиксируем успешный обмен (идемпотентность)
+        op_ok = isinstance(op_result, dict) and op_result.get("success")
+        if op_ok:
+            doc_no = op_result.get("documentNumber", "—")
+            # Регистрируем подтянутые из 1С учётные документы в папке заявки
+            register_onec_document(session, rr.id, op_type, doc_no,
+                                   op_result.get("printForm"))
+            act_ok = isinstance(act_result, dict) and act_result.get("success")
+            act_no = act_result.get("documentNumber", "—") if act_ok else None
+            if act_ok:
+                register_onec_document(session, rr.id, "reconciliation_act", act_no,
+                                       act_result.get("printForm"))
+            action = f"Из 1С получен документ {op_label} {doc_no}"
+            if act_no:
+                action += f", акт сверки {act_no}"
             rr.onec_synced = True
             rr.onec_document_number = doc_no
         else:
-            err = doc_result.get("error") if isinstance(doc_result, dict) else str(doc_result)
+            err = op_result.get("error") if isinstance(op_result, dict) else str(op_result)
             action = f"Ошибка обмена с 1С: {err}"
 
         session.add(ActionHistory(
@@ -160,7 +176,7 @@ def sync_with_onec_task(self, return_request_id: int):
         ))
         session.commit()
         logger.info(f"Заявка {rr.number}: {action}")
-        return {"onec": doc_ok, "document": doc_result, "stock": stock_result}
+        return {"onec": op_ok, "operation": op_type if op_ok else None, "result": op_result}
     except Exception as exc:
         session.rollback()
         logger.error(f"Ошибка обмена с 1С: {exc}")

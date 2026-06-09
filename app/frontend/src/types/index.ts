@@ -63,6 +63,8 @@ export interface ReturnRequest {
   client_phone?: string;
   client_email?: string;
   return_type: string;
+  kind?: string;
+  outcome?: string;
   reason_name?: string;
   status: string;
   manager_name?: string;
@@ -115,38 +117,47 @@ export interface UserListItem {
 
 export type StatusCode =
   | "created"
-  | "warehouse"
-  | "waiting"
-  | "expertise"
-  | "expertise_done"
-  | "approved"
+  | "client_data"
+  | "claim_factory"
+  | "factory_review"
+  | "factory_done"
+  | "in_transit"
+  | "received"
   | "rejected"
-  | "docs"
-  | "finance"
   | "done";
 
 export const STATUS_LABELS: Record<StatusCode, string> = {
   created: "Создана",
-  warehouse: "На проверке склада",
-  waiting: "Ожидает решения",
-  expertise: "На экспертизе",
-  expertise_done: "Экспертиза завершена",
-  approved: "Одобрена",
+  client_data: "Ожидает данных покупателя",
+  claim_factory: "Претензия отправлена заводу",
+  factory_review: "На рассмотрении завода",
+  factory_done: "Заключение получено",
+  in_transit: "Транспортировка на склад",
+  received: "Принят и сверён",
   rejected: "Отклонена",
-  docs: "Документы сформированы",
-  finance: "Ожидает фин. завершения",
   done: "Завершена",
 };
 
 export const STATUS_COLORS: Record<StatusCode, string> = {
   created: "bg-blue-100 text-blue-800",
-  warehouse: "bg-yellow-100 text-yellow-800",
-  waiting: "bg-purple-100 text-purple-800",
-  expertise: "bg-orange-100 text-orange-800",
-  expertise_done: "bg-pink-100 text-pink-800",
-  approved: "bg-green-100 text-green-800",
+  client_data: "bg-sky-100 text-sky-800",
+  claim_factory: "bg-orange-100 text-orange-800",
+  factory_review: "bg-amber-100 text-amber-800",
+  factory_done: "bg-pink-100 text-pink-800",
+  in_transit: "bg-yellow-100 text-yellow-800",
+  received: "bg-purple-100 text-purple-800",
   rejected: "bg-red-100 text-red-800",
-  docs: "bg-brand-100 text-brand-600",
-  finance: "bg-amber-100 text-amber-800",
   done: "bg-emerald-100 text-emerald-800",
+};
+
+// Итог обработки возврата
+export const OUTCOME_LABELS: Record<string, string> = {
+  write_off: "Списание",
+  correction: "Корректировка / возврат в продажу",
+};
+
+// Ветка обработки
+export const KIND_LABELS: Record<string, string> = {
+  defect: "Претензия по качеству (брак)",
+  quality: "Надлежащее качество",
 };

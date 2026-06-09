@@ -13,9 +13,8 @@ from app.schemas.return_request import (
 )
 from app.services.return_service import (
     create_return_request, transition_status, get_return_detail,
-    create_examination, submit_examination_result,
+    send_claim_to_factory, submit_factory_result,
 )
-from app.services.document_service import generate_initial_documents
 from app.utils.deps import get_current_user
 
 router = APIRouter()
@@ -45,13 +44,18 @@ async def list_returns(
 
     # Ограничение видимости по роли:
     #  - менеджер: по умолчанию свои заявки (scope=all — все);
-    #  - складской сотрудник: заявки на стадии складской проверки;
+    #  - сотрудник претензионного отдела: заявки на стадиях претензии и приёмки;
+    #  - логистика: заявки, переданные в перевозку;
     #  - руководитель/админ: все заявки.
     role = current_user.role.name if current_user.role else ""
+    claims_stages = ["client_data", "claim_factory", "factory_review",
+                     "factory_done", "in_transit", "received"]
     if role == "manager" and scope != "all":
         query = query.where(ReturnRequest.manager_id == current_user.id)
-    elif role == "warehouse_staff":
-        query = query.where(ReturnRequest.status == "warehouse")
+    elif role == "claims":
+        query = query.where(ReturnRequest.status.in_(claims_stages))
+    elif role == "logistics":
+        query = query.where(ReturnRequest.status == "in_transit")
 
     if status:
         query = query.where(ReturnRequest.status == status)
@@ -109,9 +113,8 @@ async def create_return(
     )
     rr = result.scalar_one()
 
-    # Generate initial documents
-    await generate_initial_documents(db, rr)
-    await db.commit()
+    # Документы при создании не формируются: заявка регистрируется в статусе
+    # «Создана», далее по ходу процесса формируются претензия, маршрутный лист и акты.
 
     return ReturnRequestListResponse(
         id=rr.id,
@@ -147,7 +150,9 @@ async def change_status(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        rr = await transition_status(db, return_id, data.new_status, current_user, data.comment)
+        rr = await transition_status(
+            db, return_id, data.new_status, current_user, data.comment, data.outcome
+        )
         return {"id": rr.id, "status": rr.status, "message": "Статус обновлён"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -155,33 +160,35 @@ async def change_status(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@router.post("/{return_id}/examination")
-async def send_to_examination(
+@router.post("/{return_id}/claim")
+async def send_claim(
     return_id: int,
     data: ExaminationCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Сформировать и направить претензию заводу-изготовителю."""
     try:
-        exam = await create_examination(
+        claim = await send_claim_to_factory(
             db, return_id, data.supplier_id, current_user, data.details
         )
-        return {"id": exam.id, "message": "Товар передан на экспертизу"}
+        return {"id": claim.id, "message": "Претензия направлена заводу"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{return_id}/examination/result")
-async def submit_exam_result(
+@router.post("/{return_id}/claim/result")
+async def submit_claim_result(
     return_id: int,
     data: ExaminationResultUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Внести заключение завода по претензии."""
     try:
-        rr = await submit_examination_result(
+        rr = await submit_factory_result(
             db, return_id, data.conclusion, data.details, current_user
         )
-        return {"id": rr.id, "status": rr.status, "message": "Результат экспертизы сохранён"}
+        return {"id": rr.id, "status": rr.status, "message": "Заключение завода сохранено"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

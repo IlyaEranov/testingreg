@@ -101,6 +101,8 @@ class ReturnRequestCreate(BaseModel):
     client_phone: str | None = None
     client_email: str | None = None
     return_type: str
+    # Ветка обработки: "defect" (брак, через завод) | "quality" (надлежащее качество)
+    kind: str = "defect"
     reason_id: int
     warehouse_id: int
     comment: str | None = None
@@ -114,6 +116,8 @@ class ReturnRequestUpdate(BaseModel):
 class StatusTransition(BaseModel):
     new_status: str
     comment: str | None = None
+    # Итог при завершении: "write_off" (списание) | "correction" (корректировка)
+    outcome: str | None = None
 
 
 class ReturnRequestListResponse(BaseModel):
@@ -139,6 +143,8 @@ class ReturnRequestDetailResponse(BaseModel):
     client_phone: str | None
     client_email: str | None
     return_type: str
+    kind: str = "defect"
+    outcome: str | None = None
     reason_name: str | None
     status: str
     manager_name: str | None

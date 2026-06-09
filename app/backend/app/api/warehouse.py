@@ -18,7 +18,7 @@ async def get_pending_checks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get returns waiting for warehouse check."""
+    """Заявки, доставленные на склад и ожидающие приёмки и сверки."""
     result = await db.execute(
         select(ReturnRequest)
         .options(
@@ -27,7 +27,7 @@ async def get_pending_checks(
             selectinload(ReturnRequest.manager),
             selectinload(ReturnRequest.warehouse),
         )
-        .where(ReturnRequest.status == "warehouse")
+        .where(ReturnRequest.status == "in_transit")
         .order_by(ReturnRequest.created_at.asc())
     )
     returns = result.scalars().all()

@@ -17,49 +17,13 @@ class OneCService:
         if settings.ONEC_API_TOKEN:
             self.headers["Authorization"] = f"Bearer {settings.ONEC_API_TOKEN}"
 
-    async def create_return_document(
-        self, return_number: str, client_name: str,
-        items: list[dict], total_amount: float
-    ) -> dict:
-        """POST /api/returns — create 'Возврат товаров от покупателя' in 1C."""
-        payload = {
-            "documentType": "ReturnFromBuyer",
-            "number": return_number,
-            "client": client_name,
-            "items": [
-                {
-                    "productName": item["product_name"],
-                    "article": item.get("article", ""),
-                    "quantity": item["quantity"],
-                    "price": float(item["price"]),
-                }
-                for item in items
-            ],
-            "totalAmount": total_amount,
-        }
-        return await self._post("/returns", payload)
-
-    async def update_stock(
-        self, items: list[dict], warehouse: str
-    ) -> dict:
-        """PUT /api/stock — update warehouse stock levels in 1C."""
-        payload = {
-            "warehouse": warehouse,
-            "items": [
-                {
-                    "article": item.get("article", ""),
-                    "quantity": item["quantity"],
-                    "operation": "return",
-                }
-                for item in items
-            ],
-        }
-        return await self._put("/stock", payload)
-
     async def create_write_off(
         self, return_number: str, items: list[dict], reason: str
     ) -> dict:
-        """POST /api/write-off — create write-off document in 1C."""
+        """POST /write-off — создать документ списания товара в 1С (брак).
+
+        1С создаёт документ и возвращает его номер и печатную форму.
+        """
         payload = {
             "documentType": "WriteOff",
             "returnNumber": return_number,
@@ -67,6 +31,7 @@ class OneCService:
             "items": [
                 {
                     "article": item.get("article", ""),
+                    "productName": item.get("product_name", ""),
                     "quantity": item["quantity"],
                     "price": float(item["price"]),
                 }
@@ -75,17 +40,43 @@ class OneCService:
         }
         return await self._post("/write-off", payload)
 
-    async def create_cash_refund(
-        self, return_number: str, amount: float, client_name: str
+    async def create_correction(
+        self, return_number: str, items: list[dict], warehouse: str
     ) -> dict:
-        """POST /api/refund — create cash refund order in 1C."""
+        """POST /correction — корректировка и возврат товара в продажу в 1С
+        (надлежащее качество / неактуальный заказ): остатки обновляются.
+
+        1С создаёт документ корректировки и возвращает его номер и печатную форму.
+        """
         payload = {
-            "documentType": "CashRefund",
+            "documentType": "Correction",
             "returnNumber": return_number,
-            "amount": amount,
+            "warehouse": warehouse,
+            "items": [
+                {
+                    "article": item.get("article", ""),
+                    "productName": item.get("product_name", ""),
+                    "quantity": item["quantity"],
+                    "operation": "return_to_stock",
+                }
+                for item in items
+            ],
+        }
+        return await self._post("/correction", payload)
+
+    async def get_reconciliation_act(
+        self, return_number: str, client_name: str
+    ) -> dict:
+        """POST /reconciliation-act — запросить акт сверки по контрагенту из 1С.
+
+        Акт сверки формируется в 1С; АИС подтягивает его номер и печатную форму.
+        """
+        payload = {
+            "documentType": "ReconciliationAct",
+            "returnNumber": return_number,
             "client": client_name,
         }
-        return await self._post("/refund", payload)
+        return await self._post("/reconciliation-act", payload)
 
     async def _post(self, endpoint: str, payload: dict) -> dict:
         try:

@@ -50,8 +50,8 @@ async def get_dashboard(
         "role": role,
         "role_label": {
             "admin": "Администратор", "manager": "Менеджер",
-            "warehouse_staff": "Складской сотрудник",
-            "director": "Руководитель",
+            "claims": "Сотрудник претензионного отдела",
+            "director": "Руководитель", "logistics": "Логистика",
         }.get(role, role),
         "user_name": current_user.full_name,
         "total": total,
@@ -62,7 +62,7 @@ async def get_dashboard(
         "queue_title": "",
     }
 
-    # Manager: own requests + statuses needing manager attention
+    # Менеджер: свои заявки + те, что ждут его решения
     if role == "manager":
         q = await db.execute(
             base.where(ReturnRequest.manager_id == current_user.id)
@@ -70,46 +70,60 @@ async def get_dashboard(
         )
         my = q.scalars().all()
         my_active = [r for r in my if r.status not in ("done", "rejected")]
-        # Requests awaiting decision or financial completion (manager acts)
-        decision = [r for r in my if r.status in ("waiting", "expertise_done", "finance")]
-        finance_cnt = len([r for r in my if r.status == "finance"])
+        # Заявки, требующие действия менеджера: заключение получено или товар принят
+        decision = [r for r in my if r.status in ("factory_done", "received")]
         data["widgets"] = [
             {"label": "Мои заявки", "value": len(my), "accent": "brand"},
             {"label": "В работе", "value": len(my_active), "accent": "amber"},
-            {"label": "Требуют действия", "value": len(decision), "accent": "purple"},
-            {"label": "Фин. завершение", "value": finance_cnt, "accent": "green"},
+            {"label": "Требуют решения", "value": len(decision), "accent": "purple"},
+            {"label": "Завершено", "value": len([r for r in my if r.status == "done"]), "accent": "green"},
         ]
-        data["queue_title"] = "Заявки, требующие вашего действия"
+        data["queue_title"] = "Заявки, требующие вашего решения"
         data["queue"] = [_short(r) for r in decision]
 
-    elif role == "warehouse_staff":
+    elif role == "claims":
+        claims_stages = ["client_data", "claim_factory", "factory_review", "factory_done", "in_transit", "received"]
         q = await db.execute(
-            base.where(ReturnRequest.status == "warehouse")
+            base.where(ReturnRequest.status.in_(claims_stages))
             .order_by(ReturnRequest.created_at.asc())
         )
-        pending = q.scalars().all()
+        active = q.scalars().all()
         data["widgets"] = [
-            {"label": "Ожидают проверки", "value": len(pending), "accent": "amber"},
-            {"label": "На экспертизе", "value": by_status.get("expertise", 0), "accent": "orange"},
+            {"label": "Ожидают данных", "value": by_status.get("client_data", 0), "accent": "amber"},
+            {"label": "На рассмотрении завода", "value": by_status.get("claim_factory", 0) + by_status.get("factory_review", 0), "accent": "orange"},
+            {"label": "Приёмка на складе", "value": by_status.get("in_transit", 0), "accent": "purple"},
+            {"label": "Всего в работе", "value": len(active), "accent": "brand"},
+        ]
+        data["queue_title"] = "Заявки претензионного отдела"
+        data["queue"] = [_short(r) for r in active]
+
+    elif role == "logistics":
+        q = await db.execute(
+            base.where(ReturnRequest.status == "in_transit")
+            .order_by(ReturnRequest.created_at.asc())
+        )
+        to_deliver = q.scalars().all()
+        data["widgets"] = [
+            {"label": "К перевозке", "value": len(to_deliver), "accent": "amber"},
             {"label": "Всего заявок", "value": total, "accent": "brand"},
         ]
-        data["queue_title"] = "Очередь складской проверки"
-        data["queue"] = [_short(r) for r in pending]
+        data["queue_title"] = "Заявки к перевозке на склад"
+        data["queue"] = [_short(r) for r in to_deliver]
 
     elif role == "director":
         q = await db.execute(
-            base.where(ReturnRequest.status.in_(["waiting", "expertise_done"]))
+            base.where(ReturnRequest.status.in_(["factory_done", "received"]))
             .order_by(ReturnRequest.created_at.asc())
         )
         approval = q.scalars().all()
         active = total - by_status.get("done", 0) - by_status.get("rejected", 0)
         data["widgets"] = [
-            {"label": "На согласовании", "value": len(approval), "accent": "purple"},
+            {"label": "Требуют решения", "value": len(approval), "accent": "purple"},
             {"label": "Всего заявок", "value": total, "accent": "brand"},
             {"label": "В работе", "value": active, "accent": "amber"},
             {"label": "Сумма возвратов", "value": round(total_amount, 2), "accent": "green", "is_money": True},
         ]
-        data["queue_title"] = "Заявки на согласование"
+        data["queue_title"] = "Заявки, требующие решения"
         data["queue"] = [_short(r) for r in approval]
 
     else:  # admin

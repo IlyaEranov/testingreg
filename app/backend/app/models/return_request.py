@@ -13,6 +13,12 @@ class ReturnRequest(Base):
     number: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
     return_type: Mapped[str] = mapped_column(String(100))
+    # Ветка обработки: "defect" — претензия по качеству (через завод),
+    #                  "quality" — надлежащее качество / неактуальный заказ (без завода)
+    kind: Mapped[str] = mapped_column(String(20), default="defect")
+    # Итог обработки: "write_off" — списание (брак),
+    #                 "correction" — корректировка / возврат в продажу
+    outcome: Mapped[str | None] = mapped_column(String(20))
     reason_id: Mapped[int] = mapped_column(ForeignKey("return_reasons.id"))
     status: Mapped[str] = mapped_column(String(50), default="created", index=True)
     manager_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

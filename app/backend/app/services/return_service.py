@@ -44,34 +44,36 @@ def enqueue_onec_sync(return_request_id: int):
         logger.warning(f"Очередь недоступна, обмен с 1С отложен: {exc}")
         return False
 
-# Valid status transitions: {current_status: {new_status: [allowed_roles]}}
+
+# Допустимые переходы статусов: {текущий: {новый: [роли]}}.
+# Процесс: обращение → проверка условий → сбор данных от покупателя →
+#   (ветка «брак»: претензия заводу → экспертиза/заключение) →
+#   транспортировка на склад → приёмка и сверка → решение (списание/корректировка).
 STATUS_TRANSITIONS = {
     "created": {
-        "warehouse": ["manager", "admin"],
+        "client_data": ["manager", "admin"],                 # условия соблюдены
+        "rejected": ["manager", "director", "admin"],          # условия не соблюдены
     },
-    "warehouse": {
-        "waiting": ["warehouse_staff", "admin"],
+    "client_data": {
+        "claim_factory": ["claims", "admin"],                  # ветка А (брак): претензия заводу
+        "in_transit": ["claims", "manager", "admin"],          # ветка Б (надлежащее качество)
     },
-    "waiting": {
-        "approved": ["manager", "director", "admin"],
-        "rejected": ["manager", "director", "admin"],
-        "expertise": ["manager", "admin"],
+    "claim_factory": {
+        "factory_review": ["claims", "admin"],                 # завод проводит экспертизу
+        "factory_done": ["claims", "admin"],                   # завод подтвердил по данным
     },
-    "expertise": {
-        "expertise_done": ["manager", "admin"],
+    "factory_review": {
+        "factory_done": ["claims", "admin"],
     },
-    "expertise_done": {
-        "approved": ["manager", "director", "admin"],
-        "rejected": ["manager", "director", "admin"],
+    "factory_done": {
+        "in_transit": ["manager", "claims", "admin"],          # брак подтверждён → к перевозке
+        "rejected": ["manager", "director", "admin"],          # нарушение эксплуатации → отказ
     },
-    "approved": {
-        "docs": ["system", "admin"],
+    "in_transit": {
+        "received": ["claims", "admin"],                       # приёмка и сверка на складе
     },
-    "docs": {
-        "finance": ["system", "admin"],
-    },
-    "finance": {
-        "done": ["manager", "admin"],
+    "received": {
+        "done": ["manager", "admin"],                          # решение: списание / корректировка
     },
 }
 
@@ -85,7 +87,7 @@ async def generate_number(db: AsyncSession) -> str:
 async def create_return_request(
     db: AsyncSession, data: ReturnRequestCreate, user: User
 ) -> ReturnRequest:
-    # Find or create client
+    # Найти или создать клиента
     result = await db.execute(
         select(Client).where(Client.name == data.client_name)
     )
@@ -99,7 +101,6 @@ async def create_return_request(
         db.add(client)
         await db.flush()
 
-    # Calculate total
     total = sum(Decimal(str(item.price)) * item.quantity for item in data.items)
 
     number = await generate_number(db)
@@ -107,6 +108,7 @@ async def create_return_request(
         number=number,
         client_id=client.id,
         return_type=data.return_type,
+        kind=data.kind,
         reason_id=data.reason_id,
         status="created",
         manager_id=user.id,
@@ -117,7 +119,6 @@ async def create_return_request(
     db.add(return_request)
     await db.flush()
 
-    # Create items
     for item_data in data.items:
         item = ReturnItem(
             return_request_id=return_request.id,
@@ -129,11 +130,10 @@ async def create_return_request(
         )
         db.add(item)
 
-    # Log action
     db.add(ActionHistory(
         return_request_id=return_request.id,
         user_id=user.id,
-        action="Заявка создана",
+        action="Обращение зарегистрировано, проверяются условия возврата",
         new_status="created",
     ))
     await notify_employees(db, return_request, "created")
@@ -145,7 +145,7 @@ async def create_return_request(
 
 async def transition_status(
     db: AsyncSession, return_id: int, new_status: str,
-    user: User, comment: str | None = None
+    user: User, comment: str | None = None, outcome: str | None = None
 ) -> ReturnRequest:
     result = await db.execute(
         select(ReturnRequest)
@@ -162,16 +162,19 @@ async def transition_status(
 
     allowed = STATUS_TRANSITIONS.get(rr.status, {})
     if new_status not in allowed:
-        raise ValueError(
-            f"Недопустимый переход: {rr.status} → {new_status}"
-        )
+        raise ValueError(f"Недопустимый переход: {rr.status} → {new_status}")
 
-    # Check role (system transitions bypass role check)
     allowed_roles = allowed[new_status]
     if "system" not in allowed_roles:
         user_role = user.role.name if user.role else ""
         if user_role not in allowed_roles:
             raise PermissionError("Недостаточно прав для данного перехода")
+
+    # Решение по результату возврата требует указания итога (списание/корректировка)
+    if new_status == "done":
+        if outcome not in ("write_off", "correction"):
+            raise ValueError("Не указан итог обработки: списание или корректировка")
+        rr.outcome = outcome
 
     old_status = rr.status
     rr.status = new_status
@@ -189,17 +192,16 @@ async def transition_status(
         details=comment,
     ))
 
-    # On transition to warehouse — generate application + route sheet
-    if new_status == "warehouse":
-        for doc_type in ["application", "route_sheet"]:
-            await generate_and_save_document(db, rr, doc_type)
+    # Побочные эффекты переходов
+    if new_status == "in_transit":
+        # Сформировать маршрутный лист для отдела логистики
+        await generate_and_save_document(db, rr, "route_sheet")
         db.add(ActionHistory(
             return_request_id=rr.id, user_id=None,
-            action="Документы сформированы: заявление на возврат, маршрутный лист",
+            action="Сформирован маршрутный лист, заявка передана в отдел логистики",
             old_status=new_status, new_status=new_status,
         ))
 
-    # On rejection — generate rejection notice
     if new_status == "rejected":
         await generate_and_save_document(db, rr, "rejection_notice")
         db.add(ActionHistory(
@@ -208,51 +210,27 @@ async def transition_status(
             old_status=new_status, new_status=new_status,
         ))
 
-    # Внутрисистемное уведомление сотруднику(ам) по событию
+    if new_status == "done":
+        label = "списание" if outcome == "write_off" else "корректировка"
+        db.add(ActionHistory(
+            return_request_id=rr.id, user_id=None,
+            action=f"Принято решение: {label}; операция и акт сверки поставлены в очередь обмена с 1С",
+            old_status=new_status, new_status=new_status,
+        ))
+
+    # Внутрисистемные уведомления сотрудникам по событию
     await notify_employees(db, rr, new_status)
 
     await db.commit()
 
-    # Уведомление покупателя — через очередь сообщений (Celery)
+    # Уведомление покупателя — через очередь (Celery), с резервной синхронной отправкой
     enqueued = enqueue_notification(rr.id, new_status)
     if not enqueued:
-        # Резервная синхронная отправка, если брокер недоступен
         await notify_client_on_status(db, rr, new_status)
         await db.commit()
 
-    # Auto-advance approved → docs → finance
-    if new_status == "approved":
-        await generate_and_save_document(db, rr, "return_act")
-        rr.status = "docs"
-        db.add(ActionHistory(
-            return_request_id=rr.id,
-            user_id=None,
-            action="Документы возврата сформированы автоматически",
-            old_status="approved",
-            new_status="docs",
-        ))
-        await db.flush()
-
-        rr.status = "finance"
-        db.add(ActionHistory(
-            return_request_id=rr.id,
-            user_id=None,
-            action="Заявка передана на финансовое завершение",
-            old_status="docs",
-            new_status="finance",
-        ))
-        await db.commit()
-
-    # On financial completion → 1C integration + refund act
+    # Обмен с 1С — только при финальном решении (списание / корректировка)
     if new_status == "done":
-        await generate_and_save_document(db, rr, "refund_act")
-        db.add(ActionHistory(
-            return_request_id=rr.id, user_id=None,
-            action="Акт возврата средств сформирован, обмен с 1С поставлен в очередь",
-            old_status="finance", new_status="done",
-        ))
-        await db.commit()
-        # Обмен с 1С — через очередь сообщений (Celery)
         enqueue_onec_sync(rr.id)
 
     await db.refresh(rr)
@@ -263,14 +241,16 @@ async def submit_warehouse_check(
     db: AsyncSession, return_id: int,
     checks: list[WarehouseCheckCreate], user: User
 ) -> ReturnRequest:
+    """Приёмка и сверка товара на складе сотрудником претензионного отдела
+    (переход «Транспортировка на склад» → «Принят и сверён»)."""
     result = await db.execute(
         select(ReturnRequest).where(ReturnRequest.id == return_id)
     )
     rr = result.scalar_one_or_none()
     if not rr:
         raise ValueError("Заявка не найдена")
-    if rr.status != "warehouse":
-        raise ValueError("Заявка не на проверке склада")
+    if rr.status != "in_transit":
+        raise ValueError("Принять и сверить можно только заявку в статусе «Транспортировка на склад»")
 
     for check_data in checks:
         check = WarehouseCheck(
@@ -282,25 +262,30 @@ async def submit_warehouse_check(
         )
         db.add(check)
 
-    rr.status = "waiting"
+    # Акт осмотра/сверки формируется при приёмке
+    await generate_and_save_document(db, rr, "inspection_act")
+
+    rr.status = "received"
     db.add(ActionHistory(
         return_request_id=rr.id,
         user_id=user.id,
-        action="Складская проверка завершена",
-        old_status="warehouse",
-        new_status="waiting",
+        action="Товар принят и сверён с заявкой, сформирован акт осмотра",
+        old_status="in_transit",
+        new_status="received",
     ))
-    await notify_employees(db, rr, "waiting")
+    await notify_employees(db, rr, "received")
 
     await db.commit()
     await db.refresh(rr)
     return rr
 
 
-async def create_examination(
+async def send_claim_to_factory(
     db: AsyncSession, return_id: int, supplier_id: int,
     user: User, details: str | None = None
 ) -> SupplierExamination:
+    """Сформировать претензию и направить её заводу-изготовителю
+    (переход «Ожидает данных покупателя» → «Претензия отправлена заводу»)."""
     from datetime import datetime, timezone
 
     result = await db.execute(
@@ -315,76 +300,78 @@ async def create_examination(
     rr = result.scalar_one_or_none()
     if not rr:
         raise ValueError("Заявка не найдена")
-    if rr.status != "waiting":
-        raise ValueError("Передать на экспертизу можно только заявку в статусе «Ожидает решения»")
+    if rr.status != "client_data":
+        raise ValueError("Направить претензию можно только после получения данных от покупателя")
 
-    rr.status = "expertise"
+    rr.status = "claim_factory"
 
-    exam = SupplierExamination(
+    claim = SupplierExamination(
         return_request_id=return_id,
         supplier_id=supplier_id,
         transfer_date=datetime.now(timezone.utc),
         details=details,
     )
-    db.add(exam)
+    db.add(claim)
 
-    # Generate transfer act
-    await generate_and_save_document(db, rr, "transfer_act")
+    # Претензионное письмо формирует АИС
+    await generate_and_save_document(db, rr, "claim_letter")
 
     db.add(ActionHistory(
         return_request_id=rr.id,
         user_id=user.id,
-        action="Товар передан поставщику на экспертизу, сформирован акт передачи",
-        old_status="waiting",
-        new_status="expertise",
+        action="Сформирована и направлена претензия заводу-изготовителю",
+        old_status="client_data",
+        new_status="claim_factory",
     ))
 
-    # Notify client
-    await notify_client_on_status(db, rr, "expertise")
-    # Notify employees (руководителю — товар передан на экспертизу)
-    await notify_employees(db, rr, "expertise")
+    await notify_client_on_status(db, rr, "claim_factory")
+    await notify_employees(db, rr, "claim_factory")
 
     await db.commit()
-    await db.refresh(exam)
-    return exam
+    await db.refresh(claim)
+    return claim
 
 
-async def submit_examination_result(
+async def submit_factory_result(
     db: AsyncSession, return_id: int,
     conclusion: str, details: str | None, user: User
 ) -> ReturnRequest:
+    """Внести заключение завода (переход «Претензия отправлена заводу» или
+    «На рассмотрении завода» → «Заключение получено»).
+
+    conclusion: defect_confirmed | misuse | transport_damage
+    """
     from datetime import datetime, timezone
 
     result = await db.execute(
         select(ReturnRequest).where(ReturnRequest.id == return_id)
     )
     rr = result.scalar_one_or_none()
-    if not rr or rr.status != "expertise":
-        raise ValueError("Заявка не найдена или не на экспертизе")
+    if not rr or rr.status not in ("claim_factory", "factory_review"):
+        raise ValueError("Заявка не найдена или не находится на рассмотрении завода")
 
-    # Update examination
-    exam_result = await db.execute(
+    claim_result = await db.execute(
         select(SupplierExamination)
         .where(SupplierExamination.return_request_id == return_id)
         .order_by(SupplierExamination.id.desc())
     )
-    exam = exam_result.scalar_one_or_none()
-    if exam:
-        exam.conclusion = conclusion
-        exam.details = details
-        exam.result_date = datetime.now(timezone.utc)
+    claim = claim_result.scalar_one_or_none()
+    if claim:
+        claim.conclusion = conclusion
+        claim.details = details
+        claim.result_date = datetime.now(timezone.utc)
 
-    rr.status = "expertise_done"
+    rr.status = "factory_done"
 
     db.add(ActionHistory(
         return_request_id=rr.id,
         user_id=user.id,
-        action=f"Результат экспертизы внесён: {conclusion}",
-        old_status="expertise",
-        new_status="expertise_done",
+        action=f"Получено заключение завода: {conclusion}",
+        old_status=rr.status if rr.status != "factory_done" else "claim_factory",
+        new_status="factory_done",
         details=details,
     ))
-    await notify_employees(db, rr, "expertise_done")
+    await notify_employees(db, rr, "factory_done")
 
     await db.commit()
     await db.refresh(rr)
@@ -409,7 +396,6 @@ async def get_return_detail(db: AsyncSession, return_id: int) -> dict | None:
     if not rr:
         return None
 
-    # Get examination
     exam_result = await db.execute(
         select(SupplierExamination)
         .options(selectinload(SupplierExamination.supplier))
@@ -438,6 +424,8 @@ async def get_return_detail(db: AsyncSession, return_id: int) -> dict | None:
         "client_phone": rr.client.phone if rr.client else None,
         "client_email": rr.client.email if rr.client else None,
         "return_type": rr.return_type,
+        "kind": rr.kind,
+        "outcome": rr.outcome,
         "reason_name": rr.reason.name if rr.reason else None,
         "status": rr.status,
         "manager_name": rr.manager.full_name if rr.manager else None,

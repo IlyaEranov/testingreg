@@ -28,13 +28,13 @@ async def create_notification(
     return notification
 
 
-# Status → client notification message templates
+# Статус → шаблон уведомления покупателю
 STATUS_MESSAGES = {
-    "warehouse": "Ваша заявка №{number} принята в обработку и передана на проверку склада.",
-    "expertise": "Товар по заявке №{number} передан поставщику на экспертизу.",
-    "approved": "Возврат по заявке №{number} одобрен. Денежные средства будут возвращены.",
+    "client_data": "По заявке №{number} просим направить сведения о товаре, причину и материалы (фото/видео).",
+    "claim_factory": "По заявке №{number} оформлена претензия и направлена заводу-изготовителю.",
+    "in_transit": "Товар по заявке №{number} принят к перевозке на склад магазина.",
     "rejected": "К сожалению, возврат по заявке №{number} отклонён. Подробности у менеджера.",
-    "done": "Обработка заявки №{number} завершена. Денежные средства возвращены.",
+    "done": "Обработка заявки №{number} завершена. Направляем акт сверки.",
 }
 
 
@@ -44,20 +44,22 @@ STATUS_MESSAGES = {
 EMPLOYEE_EVENTS = {
     "created": (["role:director"],
                 "Зарегистрирована новая заявка на возврат №{number}."),
-    "warehouse": (["role:warehouse_staff"],
-                  "Новая заявка №{number} поступила на складскую проверку."),
-    "waiting": (["manager", "role:director"],
-                "Заявка №{number} прошла складскую проверку и ожидает решения."),
-    "expertise": (["role:director"],
-                  "Заявка №{number} передана поставщику на экспертизу."),
-    "expertise_done": (["manager", "role:director"],
-                       "Экспертиза по заявке №{number} завершена, требуется решение."),
-    "approved": (["manager", "role:director"],
-                 "Возврат по заявке №{number} одобрен."),
+    "client_data": (["role:claims"],
+                    "Заявка №{number}: ожидаются данные покупателя, требуется обработка претензии."),
+    "claim_factory": (["role:director"],
+                      "По заявке №{number} направлена претензия заводу-изготовителю."),
+    "factory_review": (["role:director"],
+                       "Заявка №{number} передана заводу на экспертизу."),
+    "factory_done": (["manager", "role:director"],
+                     "По заявке №{number} получено заключение завода, требуется решение."),
+    "in_transit": (["role:logistics", "role:claims"],
+                   "Заявка №{number}: сформирован маршрутный лист, требуется перевозка на склад."),
+    "received": (["manager", "role:director"],
+                 "Товар по заявке №{number} принят и сверён, требуется решение."),
     "rejected": (["manager", "role:director"],
                  "Возврат по заявке №{number} отклонён."),
     "done": (["manager", "role:director"],
-             "Возврат по заявке №{number} завершён."),
+             "Обработка заявки №{number} завершена."),
 }
 
 

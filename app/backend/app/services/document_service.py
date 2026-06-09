@@ -10,16 +10,20 @@ from app.models.document import Document
 from app.models.return_request import ReturnRequest
 
 
+# Документы, которые формирует сама АИС (внутренние, не учётные)
 DOCUMENT_TYPES = {
-    "application": "Заявление на возврат товара",
+    "claim_letter": "Претензионное письмо заводу",
     "route_sheet": "Маршрутный лист",
-    "inspection_act": "Акт осмотра товара",
-    "transfer_act": "Акт передачи товара поставщику",
-    "acceptance_act": "Акт приёмки товара от поставщика",
-    "return_act": "Акт возврата товара покупателю",
-    "refund_act": "Акт возврата денежных средств",
+    "inspection_act": "Акт осмотра / сверки товара",
     "rejection_notice": "Уведомление об отказе в возврате",
-    "write_off_act": "Акт списания товара",
+}
+
+# Учётные документы, которые формируются в 1С и подтягиваются в АИС
+# (АИС их не генерирует, а сохраняет № и печатную форму, полученные из 1С)
+ONEC_DOCUMENT_TYPES = {
+    "write_off": "Акт списания товара (1С)",
+    "correction": "Корректировка / возврат в продажу (1С)",
+    "reconciliation_act": "Акт сверки (1С)",
 }
 
 
@@ -109,12 +113,25 @@ async def generate_and_save_document(
     return document
 
 
-async def generate_initial_documents(
-    db: AsyncSession, return_request: ReturnRequest
-) -> list[Document]:
-    """Generate application and route sheet on return creation."""
-    docs = []
-    for doc_type in ["application", "route_sheet"]:
-        doc = await generate_and_save_document(db, return_request, doc_type)
-        docs.append(doc)
-    return docs
+def register_onec_document(
+    db_session, return_request_id: int, onec_doc_type: str,
+    onec_number: str, file_path: str | None = None
+) -> Document:
+    """Зарегистрировать в АИС учётный документ, сформированный в 1С.
+
+    АИС не генерирует этот документ, а сохраняет его номер и (при наличии)
+    путь к печатной форме, полученной из 1С, привязывая к заявке.
+    Вызывается из синхронной задачи обмена (Celery), поэтому работает с
+    обычной (sync) сессией.
+    """
+    title = ONEC_DOCUMENT_TYPES.get(onec_doc_type, onec_doc_type)
+    document = Document(
+        return_request_id=return_request_id,
+        document_type=onec_doc_type,
+        file_name=f"{title} {onec_number}",
+        file_path=file_path or "",
+        generated_by="1С",
+    )
+    db_session.add(document)
+    db_session.flush()
+    return document
