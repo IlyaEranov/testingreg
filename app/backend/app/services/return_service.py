@@ -244,7 +244,13 @@ async def submit_warehouse_check(
     """Приёмка и сверка товара на складе сотрудником претензионного отдела
     (переход «Транспортировка на склад» → «Принят и сверён»)."""
     result = await db.execute(
-        select(ReturnRequest).where(ReturnRequest.id == return_id)
+        select(ReturnRequest)
+        .options(
+            selectinload(ReturnRequest.client),
+            selectinload(ReturnRequest.reason),
+            selectinload(ReturnRequest.items),
+        )
+        .where(ReturnRequest.id == return_id)
     )
     rr = result.scalar_one_or_none()
     if not rr:
