@@ -1,0 +1,65 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.2
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceLifeLineBorderColor #999999
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 230
+skinparam defaultFontName "Segoe UI"
+
+title Рисунок 2.5 — Диаграмма последовательности: отправка уведомления\nпокупателю через очередь сообщений
+
+actor "Пользователь" as user
+participant "Бэкенд\nбизнес-логики" as backend
+queue "Очередь\nсообщений" as queue
+participant "Обработчик\nочереди" as worker
+participant "Сервис уведомлений\n(SMTP / SMS-шлюз)" as notify
+database "База\nданных" as db
+
+user -> backend : Действие, меняющее\nстатус заявки
+activate backend
+
+backend -> db : Сохранение нового\nстатуса заявки
+activate db
+db --> backend : Сохранено
+deactivate db
+
+backend -> queue : Поместить задание\n(уведомление покупателю)
+activate queue
+queue --> backend : Задание принято
+backend --> user : Результат\n(не дожидаясь отправки)
+deactivate backend
+
+note over queue, worker
+  Отправка выполняется в фоне,
+  независимо от запроса
+end note
+
+queue -> worker : Извлечение задания
+deactivate queue
+activate worker
+
+worker -> worker : Формирование текста по шаблону\nи выбор канала (SMS / email)
+activate worker
+deactivate worker
+
+worker -> notify : Отправка сообщения\n(SMS-шлюз / SMTP)
+activate notify
+
+alt Канал доступен
+    notify --> worker : Сообщение доставлено
+    deactivate notify
+    worker -> db : Фиксация в таблице notifications
+    activate db
+    db --> worker : Записано
+    deactivate db
+else Канал недоступен
+    worker -> worker : Фиксация ошибки,\nповтор через интервал
+    activate worker
+    deactivate worker
+    worker -> queue : Возврат задания в очередь\n(повторная попытка)
+end
+deactivate worker
+
+@enduml

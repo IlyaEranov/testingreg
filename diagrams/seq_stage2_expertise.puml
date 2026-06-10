@@ -1,54 +1,47 @@
 @startuml
 skinparam backgroundColor #FFFFFF
-skinparam sequenceArrowThickness 1.5
+skinparam sequenceArrowThickness 1.2
 skinparam sequenceParticipantBorderColor #333333
 skinparam sequenceLifeLineBorderColor #999999
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-skinparam maxMessageSize 200
+skinparam maxMessageSize 230
+skinparam defaultFontName "Segoe UI"
 
-title Рисунок 2.6 — Диаграмма последовательности:\nэкспертиза поставщика и принятие решения
+title Рисунок 2.7 — Диаграмма последовательности:\nпретензия заводу-изготовителю и принятие решения
 
 actor "Покупатель" as customer
-actor "Менеджер" as manager
+actor "Претензионный\nотдел" as claims
 participant "АИС" as ais
 participant "Модуль\nдокументов" as docs
-actor "Поставщик" as supplier
+actor "Завод-\nизготовитель" as factory
+actor "Отдел\nлогистики" as logistics
 
-== 3. Экспертиза поставщика (при необходимости) ==
-
-manager -> ais : Передача товара\nна экспертизу
+claims -> ais : Внесение сведений и материалов\nпокупателя (фото, видео)
+claims -> ais : Оформление претензии заводу
 activate ais
-ais -> ais : Статус: «передана\nна экспертизу»
-ais -> docs : Генерация акта передачи
-activate docs
-docs --> ais : Акт сформирован
-deactivate docs
-ais --> customer : Уведомление:\n«Товар передан на экспертизу»
+ais -> docs : Генерация претензионного письма
+docs --> ais : Письмо сформировано
+ais -> ais : Статус «претензия\nотправлена заводу»
+ais --> customer : Уведомление: претензия\nнаправлена заводу
 deactivate ais
 
-manager -> supplier : Передача товара
-
-...Ожидание заключения поставщика...
-
-supplier -> manager : Заключение экспертизы
-
-manager -> ais : Внесение результата\nэкспертизы
+claims -> factory : Претензионное письмо
+factory -> claims : Заключение\n(экспертиза / подтверждение)
+claims -> ais : Внесение заключения завода
 activate ais
-ais -> ais : Статус: «экспертиза завершена»
-deactivate ais
+ais -> ais : Статус «заключение получено»
 
-== 4. Принятие решения ==
-
-manager -> ais : Решение: возврат одобрен
-activate ais
-ais -> ais : Статус: «одобрена»
-ais -> docs : Генерация документов возврата
-activate docs
-docs --> ais : Документы сформированы
-deactivate docs
-ais --> customer : Уведомление:\n«Возврат одобрен»
-ais -> ais : Статус: «ожидает\nфинансового завершения»
+alt Заводской брак / транспортное повреждение
+    ais -> docs : Генерация маршрутного листа
+    docs --> ais : Маршрутный лист сформирован
+    ais -> ais : Статус «транспортировка\nна склад»
+    ais --> logistics : Уведомление: товар к перевозке
+else Нарушение условий эксплуатации
+    ais -> docs : Генерация уведомления об отказе
+    ais -> ais : Статус «отклонена»
+    ais --> customer : Уведомление об отказе
+end
 deactivate ais
 
 @enduml

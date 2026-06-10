@@ -1,44 +1,49 @@
 @startuml
 skinparam backgroundColor #FFFFFF
-skinparam sequenceArrowThickness 1.5
+skinparam sequenceArrowThickness 1.2
 skinparam sequenceParticipantBorderColor #333333
 skinparam sequenceLifeLineBorderColor #999999
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-skinparam maxMessageSize 200
+skinparam maxMessageSize 230
+skinparam defaultFontName "Segoe UI"
 
-title Рисунок 2.7 — Диаграмма последовательности:\nфинансовое завершение и закрытие заявки
+title Рисунок 2.8 — Диаграмма последовательности:\nприёмка, сверка и итоговое решение с обменом 1С
 
-actor "Покупатель" as customer
+actor "Отдел\nлогистики" as logistics
+actor "Претензионный\nотдел" as claims
 actor "Менеджер" as manager
 participant "АИС" as ais
-participant "Очередь\nсообщений" as queue
+participant "Модуль\nдокументов" as docs
+queue "Очередь\nсообщений" as queue
 participant "Обработчик\nочереди" as worker
 participant "1С:Предприятие" as onec
+actor "Покупатель" as customer
 
-== 5. Финансовое завершение ==
-
-manager -> ais : Подтверждение возврата\nденежных средств
+logistics -> claims : Доставка товара на склад
+claims -> ais : Приёмка и сверка\n(количество, состояние, фото)
 activate ais
-ais -> ais : Статус: «завершена»,\nфиксация результата в БД
+ais -> docs : Генерация акта осмотра
+docs --> ais : Акт сформирован
+ais -> ais : Статус «принят и сверён»
+ais --> manager : Уведомление: требуется решение
+deactivate ais
+
+manager -> ais : Итоговое решение\n(списание / корректировка)
+activate ais
+ais -> ais : Статус «завершена»,\nфиксация итога
 ais -> queue : Задание: обмен с 1С
 ais --> manager : Заявка завершена
 deactivate ais
 
 queue -> worker : Извлечение задания
 activate worker
-worker -> onec : Создание документа возврата\nи обновление остатков
+worker -> onec : Списание / корректировка\n+ запрос акта сверки
 activate onec
-onec --> worker : Документы проведены
+onec --> worker : Номера документов\nи акт сверки
 deactivate onec
-deactivate worker
-
-== 6. Закрытие заявки ==
-
-ais -> queue : Задание: уведомить покупателя
-queue -> worker : Извлечение задания
-activate worker
-worker --> customer : Уведомление:\n«Заявка закрыта,\nсредства возвращены»
+worker -> ais : Фиксация документов 1С в заявке
+worker --> customer : Уведомление: обработка\nзавершена, акт сверки
 deactivate worker
 
 @enduml

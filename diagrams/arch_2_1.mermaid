@@ -1,0 +1,52 @@
+flowchart TB
+    browser(["Веб-браузер сотрудника"])
+
+    subgraph ais["АИС управления возвратами"]
+        proxy["Прокси-сервер"]
+
+        subgraph req["Обработка пользовательских запросов"]
+            front["Фронтенд системы"]
+            back["Бэкенд бизнес-логики"]
+            docs["Модуль генерации документов"]
+        end
+
+        sched["Планировщик заданий"]
+
+        subgraph async["Асинхронная интеграция с внешними системами"]
+            queue[("Очередь сообщений")]
+            worker["Обработчик очереди"]
+        end
+
+        subgraph store["Хранение данных"]
+            files[("Файловое хранилище")]
+            db[("БД возвратов")]
+            cache[("Локальный кеш")]
+        end
+
+        subgraph logging["Логирование"]
+            logger["Логгер событий"]
+            logfile[("Лог")]
+        end
+    end
+
+    notify["Сервис уведомлений"]
+    onec["1С:Предприятие — сервер API"]
+    monitor["Система мониторинга"]
+
+    browser -- "Управление заявками" --> proxy
+    proxy -- "статические файлы" --> front
+    proxy -- "REST API" --> back
+    front -- "REST-запросы" --> back
+    back <--> db
+    back <--> cache
+    back --> docs
+    docs --> files
+    back -- "фоновое задание" --> sched
+    sched --> queue
+    queue --> worker
+    worker -- "Создание документов в 1С" --> onec
+    worker -- "Отправка клиенту (SMS / email)" --> notify
+    back --> logger
+    worker --> logger
+    logger --> logfile
+    logfile -- "Журнал аудита" --> monitor

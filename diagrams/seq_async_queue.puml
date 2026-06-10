@@ -8,7 +8,7 @@ skinparam responseMessageBelowArrow true
 skinparam maxMessageSize 230
 skinparam defaultFontName "Segoe UI"
 
-title Рисунок 2.4 — Диаграмма последовательности асинхронного\nвзаимодействия с внешними системами через очередь сообщений
+title Рисунок 2.4 — Диаграмма последовательности: обмен данными\nс 1С:Предприятие через очередь сообщений
 
 actor "Пользователь" as user
 participant "Бэкенд\nбизнес-логики" as backend
